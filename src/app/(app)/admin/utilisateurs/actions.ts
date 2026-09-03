@@ -1,0 +1,130 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getSessionUser, isSuperAdmin, type Role, type Section } from "@/lib/auth";
+
+export type RoleInput = { role: Role; section?: Section | null };
+
+type Result = { error?: string; tempPassword?: string };
+
+async function requireSuperAdmin() {
+  const user = await getSessionUser();
+  if (!user || !isSuperAdmin(user.roles)) {
+    redirect("/login");
+  }
+}
+
+export async function createUser(input: {
+  email: string;
+  full_name: string;
+  phone?: string | null;
+  password?: string;
+  roles: RoleInput[];
+}): Promise<Result> {
+  await requireSuperAdmin();
+
+  const email = input.email.trim().toLowerCase();
+  if (!email || !input.full_name.trim()) {
+    return { error: "L'e-mail et le nom sont obligatoires." };
+  }
+  const password = input.password && input.password.length >= 6
+    ? input.password
+    : undefined;
+  const generated = password ? undefined : crypto.randomUUID().slice(0, 12).replace(/-/g, "") + "A1!";
+
+  const admin = createAdminClient();
+
+  // 1. Create auth user (email confirmed)
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password: password ?? generated,
+    email_confirm: true,
+    user_metadata: { full_name: input.full_name },
+  });
+  if (error) return { error: error.message };
+  const userId = data.user!.id;
+
+  // 2. Profile
+  const { error: pErr } = await admin.from("profiles").insert({
+    id: userId,
+    full_name: input.full_name,
+    phone: input.phone ?? null,
+  });
+  if (pErr) return { error: `Profil : ${pErr.message}` };
+
+  // 3. Roles
+  for (const r of input.roles) {
+    const { error: rErr } = await admin.from("user_roles").insert({
+      user_id: userId,
+      role: r.role,
+      section: r.section ?? null,
+    });
+    if (rErr) return { error: `Rôle ${r.role} : ${rErr.message}` };
+  }
+
+  revalidatePath("/admin/utilisateurs");
+  return { tempPassword: generated };
+}
+
+export async function updateUser(input: {
+  userId: string;
+  full_name: string;
+  phone?: string | null;
+  disabled?: boolean;
+  roles: RoleInput[];
+}): Promise<Result> {
+  await requireSuperAdmin();
+  const admin = createAdminClient();
+
+  // 1. Profile + disabled
+  const { error: pErr } = await admin
+    .from("profiles")
+    .update({ full_name: input.full_name, phone: input.phone ?? null, disabled: input.disabled ?? false })
+    .eq("id", input.userId);
+  if (pErr) return { error: `Profil : ${pErr.message}` };
+
+  // 2. Replace roles (delete + insert)
+  const { error: dErr } = await admin
+    .from("user_roles")
+    .delete()
+    .eq("user_id", input.userId);
+  if (dErr) return { error: `Rôles : ${dErr.message}` };
+
+  for (const r of input.roles) {
+    const { error: rErr } = await admin.from("user_roles").insert({
+      user_id: input.userId,
+      role: r.role,
+      section: r.section ?? null,
+    });
+    if (rErr) return { error: `Rôle ${r.role} : ${rErr.message}` };
+  }
+
+  revalidatePath("/admin/utilisateurs");
+  return {};
+}
+
+export async function resetPassword(userId: string): Promise<Result> {
+  await requireSuperAdmin();
+  const admin = createAdminClient();
+  const temp = crypto.randomUUID().slice(0, 12).replace(/-/g, "") + "A1!";
+  const { error } = await admin.auth.admin.updateUserById(userId, {
+    password: temp,
+  });
+  if (error) return { error: error.message };
+  return { tempPassword: temp };
+}
+
+export async function toggleActive(userId: string, disabled: boolean): Promise<Result> {
+  await requireSuperAdmin();
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("profiles")
+    .update({ disabled })
+    .eq("id", userId);
+  if (error) return { error: error.message };
+  revalidatePath("/admin/utilisateurs");
+  return {};
+}
