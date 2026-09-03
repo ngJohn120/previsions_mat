@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { getSessionUser, isSuperAdmin } from "@/lib/auth";
 import { getActiveSchoolYear, listSchoolYears } from "@/lib/school-year";
 import { SchoolYearSwitcher } from "@/components/school-year-switcher";
+import { OfflineGuard } from "@/components/sync/offline-guard";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
@@ -31,6 +32,7 @@ export default async function AppLayout({
 
   return (
     <div className="min-h-screen bg-slate-100">
+      <OfflineGuard />
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
         <div className="flex h-14 items-center gap-4 px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2">

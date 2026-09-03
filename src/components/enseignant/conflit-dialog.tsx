@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,9 +13,8 @@ import {
 import type { FicheListItem } from "./fiche-list";
 
 /**
- * Conflict dialog — real data + resolution wired in Phase 4 (P4-5).
- * Until then, it points the teacher at the fiche editor where the
- * conflict resolver will appear once sync detects conflicts.
+ * Conflict dialog — points the teacher at the fiche editor, where the
+ * A/B/C resolver appears for each detected conflict.
  */
 export function ConflitDialog({
   fiche,
@@ -23,6 +23,8 @@ export function ConflitDialog({
   fiche: FicheListItem;
   onClose: () => void;
 }) {
+  const router = useRouter();
+
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-lg">
@@ -36,12 +38,20 @@ export function ConflitDialog({
           <b className="text-slate-800">Fiche :</b> {fiche.cours} · {fiche.classe}
         </div>
         <p className="text-sm text-slate-500">
-          La résolution détaillée (choisir la version A/B ou saisir une version C)
-          sera disponible dans l'éditeur de la fiche à l'étape suivante.
+          Ouvrez l'éditeur : le panneau de résolution apparaîtra en haut de la fiche.
+          Vous pourrez choisir la version A (votre appareil), la version B (serveur)
+          ou saisir une version C.
         </p>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Fermer</Button>
-          <Button onClick={onClose}>Ouvrir l'éditeur</Button>
+          <Button
+            onClick={() => {
+              onClose();
+              router.push(`/fiche/${fiche.ficheId}`);
+            }}
+          >
+            Ouvrir l'éditeur
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

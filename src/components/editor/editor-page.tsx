@@ -11,6 +11,7 @@ import { submitFicheAction } from "@/app/(app)/fiche/actions";
 import { requiredColsForSection, type FicheWithRows } from "@/lib/fiche-types";
 import { sectionLabel } from "@/lib/school";
 import { useLocalFiche, useCellWriter } from "@/lib/sync/hooks";
+import { useConflicts, ConflictResolver } from "@/components/editor/conflict-resolver";
 
 const SYNC_LABEL: Record<string, string> = {
   online: "En ligne · Enregistré",
@@ -42,6 +43,7 @@ export function EditorPage({
     data
   );
   const { writeCell, unsynced } = useCellWriter(fiche.id);
+  const { conflicts, refresh: refreshConflicts } = useConflicts(fiche.id, rows);
 
   const [values, setValues] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
@@ -165,6 +167,18 @@ export function EditorPage({
         )}
         {notice && (
           <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-700">{notice}</div>
+        )}
+
+        {editable && conflicts.length > 0 && (
+          <ConflictResolver
+            ficheId={fiche.id}
+            conflicts={conflicts}
+            onResolved={() => {
+              refreshConflicts();
+              sync();
+              setStatus("online");
+            }}
+          />
         )}
 
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
