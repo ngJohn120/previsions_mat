@@ -1,15 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { saveCellValue } from "@/app/(app)/fiche/actions";
 import { cn } from "@/lib/utils";
 
 /**
  * Single editable cell in a fiche grid.
  *
- * Online-first for now (P3): each edit debounces and persists through the
- * set_cell_value RPC with optimistic UI. Phase 4 swaps persistence for
- * IndexedDB + outbox (local-first) while keeping this interface.
+ * Local-first: edits update the parent immediately (optimistic). After a
+ * debounce, `onCommit` is called with (cellId, value, version) so the parent
+ * can persist via IndexedDB + outbox (Phase 4) or server RPC (fallback).
  */
 export function Cell({
   cellId,
@@ -19,6 +18,7 @@ export function Cell({
   required,
   editable,
   onChange,
+  onCommit,
 }: {
   cellId: string;
   value: string;
@@ -26,13 +26,13 @@ export function Cell({
   colKey: string;
   required: boolean;
   editable: boolean;
-  /** Optional callback fired after a local (optimistic) change. */
   onChange?: (value: string) => void;
+  /** Persistence callback — invoked debounced after an edit. */
+  onCommit?: (cellId: string, value: string, version: number) => void;
 }) {
   const [text, setText] = useState(value);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const first = useRef(true);
 
   // Sync when server value changes from outside (revalidation/pull)
   useEffect(() => {
@@ -47,23 +47,16 @@ export function Cell({
     setSaveState("saving");
 
     if (timer.current) clearTimeout(timer.current);
-    // Debounce 600ms then persist
     timer.current = setTimeout(async () => {
-      const res = await saveCellValue({ cellId, value: next, expectedVersion: version });
-      if (res.error) {
-        setSaveState("error");
-      } else {
+      try {
+        await onCommit?.(cellId, next, version);
         setSaveState("saved");
+      } catch {
+        setSaveState("error");
       }
-      // reset to idle after showing "saved"
       setTimeout(() => setSaveState("idle"), 1200);
-    }, 600);
+    }, 500);
   }
-
-  // Avoid saving the initial render value
-  useEffect(() => {
-    first.current = false;
-  }, []);
 
   return (
     <div className="group relative h-full">

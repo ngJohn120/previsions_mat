@@ -23,10 +23,14 @@ export function PrimaryGrid({
   rows,
   editable,
   onCellsChange,
+  onCellCommit,
 }: {
   rows: FicheRow[];
   editable: boolean;
+  /** Called whenever a cell value changes locally (for live completeness). */
   onCellsChange?: (values: Record<string, string>) => void;
+  /** Called debounced after an edit for persistence. */
+  onCellCommit?: (cellId: string, value: string, version: number) => void;
 }) {
   // cellId -> current (possibly optimistic) value
   const [values, setValues] = useState<Record<string, string>>(() => {
@@ -146,6 +150,7 @@ export function PrimaryGrid({
                           required={col.required}
                           editable={editable}
                           onChange={(v) => handleCellChange(cell.id, v)}
+                          onCommit={onCellCommit}
                         />
                       ) : (
                         <div className="px-2 py-1.5 text-slate-300">—</div>

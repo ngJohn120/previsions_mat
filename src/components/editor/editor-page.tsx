@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EditorToolbar } from "@/components/editor/editor-toolbar";
 import { EditorDocHeader } from "@/components/editor/doc-header";
@@ -10,10 +10,18 @@ import { SecondaryGrid } from "@/components/editor/secondary-grid";
 import { submitFicheAction } from "@/app/(app)/fiche/actions";
 import { requiredColsForSection, type FicheWithRows } from "@/lib/fiche-types";
 import { sectionLabel } from "@/lib/school";
+import { useLocalFiche, useCellWriter } from "@/lib/sync/hooks";
+
+const SYNC_LABEL: Record<string, string> = {
+  online: "En ligne · Enregistré",
+  offline: "Hors ligne · Enregistré localement",
+  syncing: "Synchronisation…",
+  conflit: "Conflits à résoudre",
+};
 
 /**
- * Shared editor shell. Owns the local (optimistic) cell values map and
- * computes live completeness; renders the section-specific grid.
+ * Shared editor shell. Local-first: cell edits are written to IndexedDB +
+ * outbox immediately and synced in the background; the toolbar shows status.
  */
 export function EditorPage({
   data,
@@ -25,9 +33,15 @@ export function EditorPage({
   viewerName: string;
 }) {
   const router = useRouter();
-  const { fiche, meta, rows } = data;
+  const { fiche, meta } = data;
   const section = meta.section;
   const required = useMemo(() => requiredColsForSection(section), [section]);
+
+  const { rows, status, setStatus, sync, lastSaved } = useLocalFiche(
+    fiche.id,
+    data
+  );
+  const { writeCell, unsynced } = useCellWriter(fiche.id);
 
   const [values, setValues] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
@@ -43,6 +57,13 @@ export function EditorPage({
   const handleCellsChange = useCallback(
     (next: Record<string, string>) => setValues(next),
     []
+  );
+
+  const handleCellCommit = useCallback(
+    (cellId: string, value: string, version: number) => {
+      writeCell(cellId, value, version).catch(() => {});
+    },
+    [writeCell]
   );
 
   const completeStats = useMemo(() => {
@@ -64,6 +85,14 @@ export function EditorPage({
     setSubmitting(true);
     setError(null);
     setNotice(null);
+    // Ensure pending local writes are flushed before submitting.
+    if (unsynced) {
+      try {
+        await sync();
+      } catch {
+        // continue; server submit gate will error if incomplete/outdated
+      }
+    }
     const res = await submitFicheAction(fiche.id);
     setSubmitting(false);
     if (res.error) {
@@ -78,6 +107,12 @@ export function EditorPage({
     meta.enseignant || "—"
   }`;
 
+  const syncLabel = fiche.statut === "soumise"
+    ? "Soumise"
+    : editable
+      ? `${SYNC_LABEL[status] ?? SYNC_LABEL.online}${lastSaved ? " · " + lastSaved.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : ""}`
+      : "Lecture seule";
+
   return (
     <div className="no-print">
       <EditorToolbar
@@ -90,7 +125,14 @@ export function EditorPage({
         submitting={submitting}
         onSubmit={editable ? submit : undefined}
         printHref={`/impression/${fiche.id}`}
-        syncLabel={fiche.statut === "soumise" ? "Soumise" : editable ? "En ligne · Enregistré" : "Lecture seule"}
+        syncLabel={syncLabel}
+        extra={
+          editable && status === "conflit" ? (
+            <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">
+              Conflit détecté
+            </span>
+          ) : null
+        }
       />
 
       <div className="mx-auto max-w-[1560px] space-y-4 px-4 py-5">
@@ -113,7 +155,7 @@ export function EditorPage({
           <div className="flex flex-wrap items-center gap-4">
             <CompletenessBar filled={completeStats.filled} total={completeStats.total} />
             <span className="text-xs text-slate-400">
-              Les champs marqués d'un point rouge sont obligatoires pour chaque semaine d'enseignement.
+              Les champs obligatoires sont marqués d'un repère rouge à gauche de la case.
             </span>
           </div>
         )}
@@ -127,9 +169,19 @@ export function EditorPage({
 
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           {section === "primaire" ? (
-            <PrimaryGrid rows={rows} editable={editable} onCellsChange={handleCellsChange} />
+            <PrimaryGrid
+              rows={rows}
+              editable={editable}
+              onCellsChange={handleCellsChange}
+              onCellCommit={handleCellCommit}
+            />
           ) : (
-            <SecondaryGrid rows={rows} editable={editable} onCellsChange={handleCellsChange} />
+            <SecondaryGrid
+              rows={rows}
+              editable={editable}
+              onCellsChange={handleCellsChange}
+              onCellCommit={handleCellCommit}
+            />
           )}
         </div>
 
