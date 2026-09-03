@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the remaining system on the Phase 1–2 foundation: the teacher fiche editor (primary/secondary) with submit/unlock workflow, the offline-first PWA sync engine, print-fidelity PDF output + admin-oversight screens, CSV import/data tools, and deployment to Vercel + production Supabase — so the full app is testable end-to-end and releasable.
+**Goal:** Build the remaining system on the Phase 1–2 foundation: the teacher fiche editor (primary/secondary) with submit/unlock workflow, the offline-first PWA sync engine, print-fidelity PDF output + admin-oversight screens, CSV import/data tools — all sorted locally first. Deployment to Vercel + production Supabase (Phase 7) is **on hold until the user gives the go** after local completion.
 
 **Architecture:** Next.js App Router + Supabase (already scaffolded in Phases 1–2). Phase 3 adds the fiche editing UI reading/writing `fiche_rows`/`fiche_cells` with RPCs for submit/unlock; Phase 4 adds a PWA shell + IndexedDB local store/outbox + reconciliation; Phase 5 adds dedicated A4-landscape print routes/PDF (matching the paper PDFs) and the admin suivi/notifications screens; Phase 6 adds CSV import + fiche export; Phase 7 handles Vercel + production Supabase deployment with optional CI migrations.
 
@@ -370,6 +370,9 @@ Sub-steps:
 
 # PHASE 7 — Deployment & release
 
+> **STATUS: ON HOLD — do not start until the user gives the go.**
+> User decision: Phase 7 waits until everything is nicely sorted locally (Phases 3–6 built, tested, and reviewed). The user will explicitly green-light deployment later. Do not create the Vercel project, prod Supabase project, CI, or deploy before that go-ahead.
+
 ### Task P7-1: Vercel project + environment config
 
 **Files:**
@@ -428,6 +431,6 @@ Sub-steps:
 ## Self-Review Notes
 
 - **Spec coverage:** P3 covers §6 editors (02/03/04) + submit/unlock lifecycle + consultation; P4 covers §5 offline sync/data-safety/conflicts; P5 covers print (§6 05/14) + oversight (§6 11/12) + real PDF deliverable with scale control (user feedback). P6 covers the deferred CSV import buttons (mockups 06–09) + export. P7 covers Vercel + prod Supabase deploy (+ optional CI). Structure/admin screens (06–10, 13) were Phase 2 (done).
-- **Placeholder scan:** no TBD. Items marked "stub until P4" in P3 (conflict dialog) are explicitly wired in P4-5; the demo/test seeding is concrete. P7-2 Step 1 flags a user decision (separate prod project vs reuse) as a gate, not a placeholder.
+- **Placeholder scan:** no TBD. Items marked "stub until P4" in P3 (conflict dialog) are explicitly wired in P4-5; the demo/test seeding is concrete. P7-2 Step 1 flags a user decision (separate prod project vs reuse) as a gate, not a placeholder. **Phase 7 is explicitly ON HOLD by user decision** — see the status note at the top of the phase; local phases (3–6) proceed first.
 - **Type consistency:** `set_cell_value(p_cell_id, p_value, p_expected_version)` is used by P3-3/4 (online) and reused by P4-2 (outbox); `row_uuid`/`fiche_rows`/`fiche_cells` names match Phases 1–2. CSV validators share the pure `parseCsv`; import actions reuse existing create helpers (e.g. attribution creation refactored in P6-5). Notifications table naming is introduced in P5-3 only.
 - **Filename note:** this file is named `phases3-5-...` for continuity but now covers Phases 3–7.
