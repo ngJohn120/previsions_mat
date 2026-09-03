@@ -17,7 +17,11 @@ export const metadata: Metadata = {
   description: "Gestion des prévisions annuelles des matières (Primaire & Secondaire)",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html
       lang="fr"

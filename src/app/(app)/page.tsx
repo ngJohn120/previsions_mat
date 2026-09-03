@@ -1,6 +1,6 @@
 import { getSessionUser, isSuperAdmin, isSectionAdmin } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { signOut } from "./actions";
+import { signOut } from "../actions";
 
 function roleLabel(user: NonNullable<Awaited<ReturnType<typeof getSessionUser>>>) {
   const labels: Record<string, string> = {
