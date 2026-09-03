@@ -1,0 +1,27 @@
+The app we're designing is meant record the content to be taught accross all subjects in the primary and secondary school.
+
+## Each subject has a single form  that records the whole year's study material.
+
+## There's going to be 2 types of users : 
+- Teachers : each one is assigned to one or more subjects and their primary purpose in the app is to fill subject forms and submit the completed document.
+Once a form is submitted future edits require approval from an admin
+- Admins : There's going to be 3 of them (with the possibily of adding more). A super admin that oversees the entire system with access to everything, an admin for the primary school (constrained solely to his section's data) and an admin for secondary school
+
+## The super user should have a User management section from where he performs all user management duties
+
+## There are 2 forms (1 for Primary, 1 for secondary) that are used accross all subjects. The super user sets the form template (per the school year calendar) for both sections.
+Dates on the form will vary with the years so the form's design should be flexible so the super user can set it according to the official school calendar.
+Example of forms :
+- Primary school : "C:\Users\Administrator\Documents\MEGA\Documents\SILOE\Prevision_WebApp\Prevision_Annuelle_Primaire27.pdf"
+- Secondary : "C:\Users\Administrator\Documents\MEGA\Documents\SILOE\Prevision_WebApp\Prevision_Annuelle_Sec.pdf"
+- How a manually filled form looks like : "C:\Users\Administrator\Documents\MEGA\Documents\SILOE\Prevision_WebApp\Prevision_Template_FR.pdf"
+
+
+## Subjects will be grouped by class. For Primary school per example, the admin oversees 6 classes with over 10 subjects each. Each class has only 1 teacher while a the Secondary level a teacher can have several subjects in different classes
+
+## The app should be accessible from all devices at any given time (i'll host the online version on Vercel - the free tier) with the possibility to function offline. 
+This offline version should have a synchronisation feature. 
+For maximum data safety, if the app has been operating offline it cannot be closed until a successful synchronisation has been done.
+
+## Forms are meant to be printed in a table format accross 2 pages for primary school and 3 pages for secondary.
+The print format should resemble as closely as possible to the provided template

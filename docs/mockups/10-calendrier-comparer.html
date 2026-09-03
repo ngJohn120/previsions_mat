@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-scale=1.0">
+<title>Comparer · Calendrier — Prévisions Matières (maquette)</title>
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  body { background: var(--bg); }
+  .cmp-wrap { max-width: 1300px; margin: 0 auto; padding: 32px 24px 60px; }
+  .cmp-wrap h1 { font-size: 22px; margin: 0 0 4px; }
+  .cmp-wrap p.lead { color: var(--text-2); margin: 0 0 26px; font-size: 14px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+  .ccard { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; }
+  .ccard .head { padding: 14px 16px 10px; border-bottom: 1px solid var(--border); }
+  .ccard .head .tag { display:inline-block; font-size:10px; font-weight:800; letter-spacing:.6px; padding:3px 9px; border-radius:999px; color:#fff; margin-bottom:7px; }
+  .ccard .head h3 { margin:0; font-size:16px; }
+  .ccard .head p { margin:4px 0 0; font-size:12.5px; color:var(--text-3); line-height:1.4; }
+  .ccard .body { padding: 12px 16px; }
+  .ccard .pros { margin: 0; padding-left: 18px; font-size: 12.5px; color: var(--text-2); display:flex; flex-direction:column; gap:4px; flex:1; }
+  .ccard .cta { display:block; margin: 14px 16px 16px; text-align:center; }
+  .tag-a { background: var(--primary); }
+  .tag-b { background:#6d28d9; }
+  .tag-c { background:#15803d; }
+</style>
+</head>
+<body>
+<div class="cmp-wrap">
+<h1>Calendrier & modèles — concept retenu : <span style="color:#15803d;">C · Grille mensuelle</span></h1>
+<p class="lead">Vous avez choisi la vue « Grille mensuelle » : navigation par mois, cliquer un jour ouvre son édition. C'est désormais le contenu de l'écran <strong>Calendrier & modèles</strong>.</p>
+<div class="cards">
+  <div class="ccard">
+    <div class="head"><span class="tag tag-a">A · TABLE</span><h3>Table des semaines</h3><p>Une ligne par semaine, filtres, types en pastilles, édition ligne à ligne. Simple et proche du formulaire.</p></div>
+    <div class="body"><ul class="pros"><li>Fidèle au papier (mois × semaines)</li><li>Filtrage/édition rapides</li><li>Le plus simple à implémenter</li></ul></div>
+    <a class="btn btn-ghost cta" href="10-calendrier-concept-a-table.html">Voir le concept A</a>
+  </div>
+  <div class="ccard" style="outline:3px solid #15803d;">
+    <div class="head"><span class="tag tag-c">C · GRILLE MENSUELLE ✓</span><h3>Calendrier mois par mois</h3><p>Vraie grille calendaire ; semaines dans les jours, événements en badges, panneau latéral d'édition.</p></div>
+    <div class="body"><ul class="pros"><li>Familière (vraie grille)</li><li>Bon pour repérer les jours précis</li><li>Édition via panneau latéral</li></ul></div>
+    <a class="btn btn-success cta" href="10-calendrier.html">C'est l'écran retenu →</a>
+  </div>
+</div>
+<p class="hint" style="margin-top:18px">💡 Le concept A reste disponible pour comparaison ; il a été écarté au profit de la grille mensuelle (C).</p>
+</div>
+<div class="mock-flag">MAQUETTE · COMPARATIF</div>
+</body>
+</html>

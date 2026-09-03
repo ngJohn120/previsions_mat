@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Éditeur · Prévision annuelle Primaire — Prévisions Matières (maquette)</title>
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  body { background: var(--bg); }
+  .editor-top { position: sticky; top: 0; z-index: 30; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .editor-top-in { display: flex; align-items: center; gap: 14px; padding: 10px 18px; flex-wrap: wrap; }
+  .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--text-2); cursor: pointer; border: none; background: none; padding: 6px 8px; border-radius: 6px; }
+  .back-link:hover { background: var(--surface-2); color: var(--text); }
+  .back-link svg { width: 16px; height: 16px; }
+  .editor-title { font-weight: 700; font-size: 15px; }
+  .editor-title small { display: block; font-weight: 500; color: var(--text-3); font-size: 11.5px; }
+
+  /* En-tête façon document (calqué sur le formulaire papier) */
+  .doc-head { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin: 16px 18px 0; box-shadow: var(--shadow-sm); overflow: hidden; }
+  .doc-head .topline { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 10px 16px; font-size: 12px; color: var(--text-2); border-bottom: 1px dashed var(--border); flex-wrap: wrap; }
+  .doc-head .school { font-weight: 800; font-size: 13px; letter-spacing: .2px; color: var(--text); }
+  .doc-head .addr { color: var(--text-3); font-size: 11.5px; }
+  .doc-head .title-band { text-align: center; padding: 12px 16px; background: #fafbfd; border-bottom: 1px solid var(--border); }
+  .doc-head .title-band .prez { font-size: 21px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text); }
+  .doc-head .kv-row { display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 10px 16px; font-size: 12.5px; }
+  .doc-head .kv { display: flex; gap: 6px; align-items: baseline; }
+  .doc-head .kv b { font-weight: 700; }
+  .doc-head .kv span { color: var(--text-2); border-bottom: 1px dotted var(--border-strong); min-width: 84px; padding: 0 4px; }
+  .doc-head .kv span.sb { color: var(--primary-strong); font-weight: 600; border-color: var(--primary); }
+
+  .grid-shell { margin: 14px 18px 40px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); overflow: hidden; }
+  .grid-scroll { overflow-x: auto; }
+  table.grid { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 1180px; font-size: 12.8px; }
+  table.grid th { position: sticky; top: 0; background: var(--surface-2); font-size: 10.5px; letter-spacing: .4px; text-transform: uppercase; color: var(--text-3); font-weight: 800; padding: 8px 10px; border-bottom: 2px solid var(--border-strong); border-right: 1px solid var(--border); text-align: center; z-index: 2; }
+  table.grid td { border: 1px solid #e3e7ee; padding: 0; vertical-align: top; height: 46px; }
+  td.mois { background: #eef1f6; color: var(--text-2); font-weight: 700; font-size: 11px; text-align: center; vertical-align: middle; letter-spacing: .2px; padding: 4px; width: 108px; }
+  td.week { text-align: center; vertical-align: middle; background: #fbfcfe; padding: 4px 8px; white-space: nowrap; width: 172px; }
+  td.week .n { font-weight: 700; display: block; font-size: 12px; }
+  td.week .d { color: var(--text-3); font-size: 11px; }
+  td.cell { padding: 0; }
+  .cell { width: 100%; min-height: 46px; padding: 6px 9px; font-size: 12.8px; line-height: 1.35; outline: none; }
+  .cell:hover { background: #f6f9ff; }
+  .cell:focus { background: #fffbe6; box-shadow: inset 0 0 0 2px var(--focus); }
+  .cell.req-missing { box-shadow: inset 3px 0 0 #e5b9b9; }
+  .cell[data-c="mat"] { min-width: 250px; }
+  .cell[data-c="ref"] { min-width: 300px; }
+  .cell[data-c="int"] { min-width: 270px; }
+  .cell[data-c="obs"] { min-width: 96px; }
+  tr.band td { background: #fdf6e3; border-color: #ecdcb4; color: #7c5e10; font-weight: 700; text-align: center; padding: 8px 10px; font-size: 11.5px; letter-spacing: .3px; text-transform: uppercase; }
+  tr.band.teaching-event td { background: #f3e8fd; border-color: #e2ccf5; color: #6d28d9; }
+  .grid-foot { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-top: 1px solid var(--border); background: var(--surface-2); font-size: 12px; color: var(--text-3); }
+  .legend { display: inline-flex; gap: 14px; align-items: center; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -2px; }
+  .editor-wrap { max-width: 1560px; margin: 0 auto; }
+  @media print { .no-print { display: none !important; } }
+</style>
+</head>
+<body>
+<div class="editor-wrap">
+
+  <!-- ======= Barre d'édition (no-print) ======= -->
+  <div class="editor-top no-print">
+    <div class="editor-top-in">
+      <a class="back-link" href="02-dashboard-enseignant.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+        Mes fiches
+      </a>
+      <div class="editor-title">PRÉVISION ANNUELLE · Français — Grammaire<small>6<sup>e</sup> B · Primaire · Année 2026 – 2027 · Mme Mbuyi</small></div>
+      <div class="spacer"></div>
+      <span class="sync-pill sync-online"><span class="dot"></span> En ligne · Enregistré 14:02</span>
+      <a class="btn btn-ghost btn-sm" href="05-apercu-impression-primaire.html" target="_blank">Aperçu impression</a>
+      <button class="btn btn-primary btn-sm" disabled title="Complétez toutes les semaines obligatoires pour soumettre">Soumettre</button>
+    </div>
+  </div>
+
+  <!-- ======= En-tête façon document ======= -->
+  <div class="doc-head no-print">
+    <div class="topline">
+      <span><span class="school">COMPLEXE SCOLAIRE SILOE</span> &nbsp;·&nbsp; <span class="addr">2938/40, AV. LES ÉLITES — Q/GAMBELA — C/LUBUMBASHI</span></span>
+      <span class="kv" style="border:none"><b>Année scolaire :</b><span>2026 – 2027</span></span>
+    </div>
+    <div class="title-band">
+      <div class="prez">Prévision annuelle</div>
+    </div>
+    <div class="kv-row">
+      <span class="kv"><b>Section :</b><span>Primaire</span></span>
+      <span class="kv"><b>Classe :</b><span>6<sup>e</sup> B</span></span>
+      <span class="kv"><b>Titulaire :</b><span>Mme Mbuyi</span></span>
+      <span class="kv"><b>Branche :</b><span>Français</span></span>
+      <span class="kv"><b>Sous-branche :</b><span class="sb">Grammaire</span></span>
+    </div>
+  </div>
+
+  <!-- ======= Barre de progression ======= -->
+  <div style="margin:12px 18px 0; display:flex; gap:16px; align-items:center; flex-wrap:wrap;" class="no-print">
+    <div class="completeness" style="flex:0 1 360px; min-width:260px;">
+      <span class="hint">Semaines remplies</span>
+      <div class="progress"><span style="width:12%"></span></div>
+      <span class="pct">5 / 43</span>
+    </div>
+    <span class="hint">Bandes dorées = périodes spéciales (définies par l'administration). Bandes violettes = évaluations / examens. Les champs « Matières », « Réf. » et « Intention » sont obligatoires pour toute semaine d'enseignement.</span>
+  </div>
+
+  <!-- ======= Grille ======= -->
+  <div class="grid-shell no-print">
+    <div class="grid-scroll">
+      <table class="grid">
+        <thead>
+          <tr>
+            <th style="width:108px">Mois</th>
+            <th style="width:172px">Semaine — Date</th>
+            <th>Matières à enseigner</th>
+            <th style="width:300px">Réf.</th>
+            <th>Intention</th>
+            <th style="width:104px">Obs.</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- ============ SEPTEMBRE ============ -->
+          <tr>
+            <td class="mois" rowspan="5">Septembre</td>
+            <td class="week"><span class="n">1</span><span class="d">01 → 04/09/2026</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true">Grammaire — la phrase (rappel)</div></td>
+            <td class="cell"><div class="cell" data-c="ref" contenteditable="true">Manuel p. 4–6</div></td>
+            <td class="cell"><div class="cell" data-c="int" contenteditable="true">Reconnaître la phrase simple</div></td>
+            <td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td>
+          </tr>
+          <tr><td class="week"><span class="n">2</span><span class="d">07 → 11/09/2026</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true">Grammaire — le groupe sujet</div></td>
+            <td class="cell"><div class="cell" data-c="ref" contenteditable="true">Manuel de grammaire p. 7–9</div></td>
+            <td class="cell"><div class="cell" data-c="int" contenteditable="true">Identifier le sujet du verbe</div></td>
+            <td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">3</span><span class="d">14 → 18/09/2026</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true">Lecture — la fable</div></td>
+            <td class="cell"><div class="cell" data-c="ref" contenteditable="true">Livre de lecture p. 12</div></td>
+            <td class="cell"><div class="cell" data-c="int" contenteditable="true">Comprendre la morale d'une fable</div></td>
+            <td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">4</span><span class="d">21 → 25/09/2026</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true">Vocabulaire — les synonymes</div></td>
+            <td class="cell"><div class="cell" data-c="ref" contenteditable="true">Cahier d'activités p. 3</div></td>
+            <td class="cell"><div class="cell" data-c="int" contenteditable="true">Employer des synonymes à bon escient</div></td>
+            <td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">5</span><span class="d">28/09 → 02/10/2026</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true">Orthographe — le pluriel des noms</div></td>
+            <td class="cell"><div class="cell" data-c="ref" contenteditable="true">Manuel d'orthographe p. 15–17</div></td>
+            <td class="cell"><div class="cell" data-c="int" contenteditable="true">Former le pluriel des noms en -al / -ail</div></td>
+            <td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+
+          <!-- ============ OCTOBRE ============ -->
+          <tr>
+            <td class="mois" rowspan="4">Octobre</td>
+            <td class="week"><span class="n">6</span><span class="d">05 → 09/10/2026</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td>
+          </tr>
+          <tr><td class="week"><span class="n">7</span><span class="d">12 → 16/10/2026</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">8</span><span class="d">19 → 23/10/2026</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">9</span><span class="d">26 → 30/10/2026</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+
+          <tr class="band"><td colspan="6">1<sup>re</sup> évaluation · 1<sup>re</sup> période + détente — du 02 au 06/11/2026</td></tr>
+
+          <!-- ============ NOVEMBRE ============ -->
+          <tr>
+            <td class="mois" rowspan="4">Novembre</td>
+            <td class="week"><span class="n">10</span><span class="d">09 → 13/11/2026</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td>
+          </tr>
+          <tr><td class="week"><span class="n">11</span><span class="d">16 → 20/11/2026</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">12</span><span class="d">23 → 27/11/2026</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">13</span><span class="d">30/11 → 04/12/2026</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+
+          <!-- ============ DÉCEMBRE ============ -->
+          <tr>
+            <td class="mois" rowspan="4">Décembre</td>
+            <td class="week"><span class="n">14</span><span class="d">07 → 11/12/2026</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td>
+          </tr>
+          <tr><td class="week"><span class="n">15</span><span class="d">14 → 18/12/2026</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">16</span><span class="d">21 → 25/12/2026</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">17</span><span class="d">28/12 → 01/01/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+
+          <!-- ============ JANVIER ============ -->
+          <tr>
+            <td class="mois" rowspan="4">Janvier</td>
+            <td class="week"><span class="n">18</span><span class="d">04 → 08/01/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td>
+          </tr>
+          <tr><td class="week"><span class="n">19</span><span class="d">11 → 15/01/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">20</span><span class="d">18 → 22/01/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">21</span><span class="d">25 → 29/01/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+
+          <tr class="band teaching-event"><td colspan="6">Révision + examens hors session · 1<sup>er</sup> trimestre</td></tr>
+          <tr class="band teaching-event"><td colspan="6">Examens du 1<sup>er</sup> trimestre</td></tr>
+          <tr class="band"><td colspan="6">Vacances de Noël</td></tr>
+
+          <!-- ============ FÉVRIER ============ -->
+          <tr>
+            <td class="mois" rowspan="4">Février</td>
+            <td class="week"><span class="n">22</span><span class="d">01 → 05/02/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td>
+          </tr>
+          <tr><td class="week"><span class="n">23</span><span class="d">08 → 12/02/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">24</span><span class="d">15 → 19/02/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">25</span><span class="d">22 → 26/02/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+
+          <tr class="band teaching-event"><td colspan="6">Évaluation · 2<sup>e</sup> trimestre + détente</td></tr>
+
+          <!-- ============ MARS ============ -->
+          <tr>
+            <td class="mois" rowspan="5">Mars</td>
+            <td class="week"><span class="n">26</span><span class="d">01 → 05/03/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td>
+          </tr>
+          <tr><td class="week"><span class="n">27</span><span class="d">08 → 12/03/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">28</span><span class="d">15 → 19/03/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">29</span><span class="d">22 → 26/03/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">30</span><span class="d">29/03 → 02/04/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+
+          <tr class="band teaching-event"><td colspan="6">Examens du 2<sup>e</sup> trimestre</td></tr>
+          <tr class="band"><td colspan="6">Vacances de Pâques</td></tr>
+
+          <!-- ============ AVRIL ============ -->
+          <tr>
+            <td class="mois" rowspan="4">Avril</td>
+            <td class="week"><span class="n">31</span><span class="d">05 → 09/04/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td>
+          </tr>
+          <tr><td class="week"><span class="n">32</span><span class="d">12 → 16/04/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">33</span><span class="d">19 → 23/04/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">34</span><span class="d">26 → 30/04/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+
+          <!-- ============ MAI ============ -->
+          <tr>
+            <td class="mois" rowspan="4">Mai</td>
+            <td class="week"><span class="n">35</span><span class="d">03 → 07/05/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td>
+          </tr>
+          <tr><td class="week"><span class="n">36</span><span class="d">10 → 14/05/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">37</span><span class="d">17 → 21/05/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">38</span><span class="d">24 → 27/05/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+
+          <!-- ============ JUIN ============ -->
+          <tr>
+            <td class="mois" rowspan="4">Juin</td>
+            <td class="week"><span class="n">39</span><span class="d">01 → 04/06/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td>
+          </tr>
+          <tr><td class="week"><span class="n">40</span><span class="d">07 → 11/06/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">41</span><span class="d">14 → 18/06/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+          <tr><td class="week"><span class="n">42</span><span class="d">21 → 25/06/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td></tr>
+
+          <tr class="band teaching-event"><td colspan="6">Examens de fin d'année · calcul des points</td></tr>
+
+          <!-- ============ JUILLET ============ -->
+          <tr>
+            <td class="mois" rowspan="1">Juillet</td>
+            <td class="week"><span class="n">43</span><span class="d">28/06 → 02/07/2027</span></td>
+            <td class="cell"><div class="cell" data-c="mat" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="ref" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="int" contenteditable="true"></div></td><td class="cell"><div class="cell" data-c="obs" contenteditable="true"></div></td>
+          </tr>
+          <tr class="band"><td colspan="6">Proclamation et remise des bulletins · certificat de clôture</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="grid-foot">
+      <span><strong>43 semaines d'enseignement</strong> · 2026 – 2027</span>
+      <span class="spacer" style="flex:1"></span>
+      <span class="legend"><span><i style="background:#fdf6e3;border:1px solid #ecdcb4"></i>Période spéciale (non saisissable)</span><span><i style="background:#f3e8fd;border:1px solid #e2ccf5"></i>Évaluation / examen</span></span>
+    </div>
+  </div>
+
+  <div style="margin:0 18px 30px; font-size:12px; color:var(--text-3);" class="no-print">💡 <strong>Conseil :</strong> « Réf. » contient les références d'ouvrages (manuel, page). Utilisez la molette pour défiler horizontalement sur petit écran ; la colonne « Mois » reste fixe à gauche dans l'application réelle.</div>
+
+</div>
+<div class="mock-flag">MAQUETTE · NON FONCTIONNELLE</div>
+</body>
+</html>

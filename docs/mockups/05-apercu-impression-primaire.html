@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aperçu impression · Prévision annuelle Primaire — maquette</title>
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  body { background: #e9edf2; }
+  .toolbar { position: sticky; top: 0; z-index: 30; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .toolbar-in { display: flex; align-items: center; gap: 14px; padding: 10px 18px; flex-wrap: wrap; max-width: 1200px; margin: 0 auto; }
+  .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--text-2); cursor: pointer; border: none; background: none; padding: 6px 8px; border-radius: 6px; }
+  .back-link:hover { background: var(--surface-2); color: var(--text); }
+  .back-link svg { width: 16px; height: 16px; }
+  .toolbar .title { font-weight: 700; font-size: 14.5px; }
+  .preview-wrap { max-width: 1160px; margin: 22px auto 60px; display: flex; flex-direction: column; gap: 26px; align-items: center; }
+
+  /* Feuille A4 PAYSAGE (largeur > hauteur) */
+  .sheet { width: 1080px; max-width: 97%; background: #fff; box-shadow: 0 6px 24px rgba(23,32,46,.18); padding: 40px 44px 34px; position: relative; }
+  .sheet + .sheet { margin-top: 4px; }
+  .page-note { font-size: 11px; color: var(--text-3); text-align: center; margin-top: 12px; letter-spacing: .3px; }
+  /* watermark */
+  .sheet .wm { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .sheet .wm span { font-size: 96px; font-weight: 800; letter-spacing: 12px; color: rgba(200,30,30,.10); transform: rotate(-24deg); text-transform: uppercase; white-space: nowrap; }
+
+  /* ==== typo document (print-like) ==== */
+  .doc { font-family: "Times New Roman", Georgia, serif; color: #000; font-size: 11.5px; line-height: 1.35; }
+  .doc .hdr { text-align: center; font-size: 11px; margin-bottom: 4px; }
+  .doc .hdr .school { font-weight: 700; font-size: 12.5px; }
+  .doc .hdr .addr { font-size: 10px; }
+  .doc .hdr .annee { font-weight: 700; }
+  .doc .doc-title { text-align: center; font-weight: 700; text-transform: uppercase; font-size: 16px; letter-spacing: 2px; margin: 10px 0 6px; }
+  .doc .fields { width: 100%; margin: 2px 0 8px; border-collapse: collapse; }
+  .doc .fields td { border: none; padding: 1px 4px; font-size: 11px; vertical-align: bottom; }
+  .doc .fields .lbl { font-weight: 700; white-space: nowrap; }
+  .doc .fields .val { border-bottom: 1px solid #000; min-width: 110px; padding: 0 4px 1px; text-align: center; }
+  .doc table.grid { width: 100%; border-collapse: collapse; font-size: 10px; }
+  .doc table.grid th, .doc table.grid td { border: 1px solid #000; padding: 3px 5px; vertical-align: top; }
+  .doc table.grid th { background: #f1f1f1; font-weight: 700; text-align: center; font-size: 9px; text-transform: uppercase; letter-spacing: .3px; }
+  .doc table.grid td.mois { font-weight: 700; text-align: center; vertical-align: middle; font-size: 9px; background: #f7f7f7; width: 74px; }
+  .doc table.grid td.num { text-align: center; vertical-align: middle; font-weight: 700; white-space: nowrap; width: 110px; }
+  .doc table.grid td.c { min-height: 24px; }
+  .doc table.grid tr.band td { font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: .3px; background: #fbfbf7; font-size: 9px; }
+  .doc .sign { display: flex; justify-content: space-between; margin-top: 24px; font-size: 11px; }
+  .doc .sign .fait { font-size: 11px; }
+  .doc .sign .dir { text-align: center; }
+  .doc .sign .dir .l1 { font-weight: 700; margin-top: 34px; }
+  .break-page { page-break-before: always; }
+  @media print {
+    body { background: #fff; }
+    .no-print { display: none !important; }
+    .preview-wrap { max-width: none; margin: 0; gap: 0; }
+    .sheet { width: auto; max-width: none; box-shadow: none; padding: 8mm; margin: 0; }
+    .sheet .wm { display: none; }
+    .sheet + .sheet { margin-top: 0; }
+    .break-page { page-break-before: always; }
+  }
+</style>
+</head>
+<body>
+  <!-- ======= Barre d'aperçu (no-print) ======= -->
+  <div class="toolbar no-print">
+    <div class="toolbar-in">
+      <a class="back-link" href="03-editeur-primaire.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+        Retour à l'éditeur
+      </a>
+      <div class="title">Aperçu impression · Prévision annuelle — Primaire</div>
+      <div class="spacer"></div>
+      <span class="chip chip-brouillon"><span class="dot"></span>Brouillon</span>
+      <button class="btn btn-ghost btn-sm" onclick="history.length>1?history.back():location.href='03-editeur-primaire.html'">Fermer</button>
+      <button class="btn btn-primary btn-sm" onclick="window.print()">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+        Imprimer / PDF
+      </button>
+    </div>
+  </div>
+
+  <div class="preview-wrap">
+    <div class="hint no-print" style="color:var(--text-3); font-size:12.5px; text-align:center; max-width:900px;">
+      Reproduction fidèle du formulaire papier (A4 <strong>paysage</strong>, 2 pages). Les brouillons portent un filigrane « BROUILLON » ; les fiches soumises sont imprimées sans filigrane. Pour un vrai PDF : « Imprimer / PDF » → Enregistrer en PDF (orientation : paysage).
+    </div>
+
+    <!-- ================= PAGE 1 (paysage) ================= -->
+    <div class="sheet">
+      <div class="wm"><span>Brouillon</span></div>
+      <div class="doc">
+        <div class="hdr">
+          <div class="school">COMPLEXE SCOLAIRE SILOE</div>
+          <div class="addr">2938/40, AV. LES ÉLITES — Q/GAMBELA — C/LUBUMBASHI</div>
+          <div class="annee">ANNÉE SCOLAIRE 2026 – 2027</div>
+        </div>
+        <div class="doc-title">Prévision annuelle</div>
+        <table class="fields">
+          <tr>
+            <td class="lbl">SECTION :</td><td class="val">PRIMAIRE</td>
+            <td class="lbl">CLASSE :</td><td class="val">6<sup>e</sup> B</td>
+            <td class="lbl">TITULAIRE :</td><td class="val">Mme Mbuyi</td>
+          </tr>
+          <tr>
+            <td class="lbl">BRANCHE :</td><td class="val">FRANÇAIS</td>
+            <td class="lbl">SOUS-BRANCHE :</td><td class="val">GRAMMAIRE</td>
+            <td></td><td></td>
+          </tr>
+        </table>
+
+        <table class="grid">
+          <thead>
+            <tr>
+              <th style="width:74px">Mois</th>
+              <th style="width:118px">Semaine — Date</th>
+              <th>Matières à enseigner</th>
+              <th style="width:180px">Réf.</th>
+              <th style="width:220px">Intention</th>
+              <th style="width:60px">Obs.</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Septembre -->
+            <tr><td class="mois" rowspan="5">Septembre</td><td class="num">1 · 01→04/09</td><td class="c">Grammaire — la phrase (rappel)</td><td class="c">Manuel p. 4–6</td><td class="c">Reconnaître la phrase simple</td><td class="c"></td></tr>
+            <tr><td class="num">2 · 07→11/09</td><td class="c">Grammaire — le groupe sujet</td><td class="c">Manuel de grammaire p. 7–9</td><td class="c">Identifier le sujet du verbe</td><td class="c"></td></tr>
+            <tr><td class="num">3 · 14→18/09</td><td class="c">Lecture — la fable</td><td class="c">Livre de lecture p. 12</td><td class="c">Comprendre la morale d'une fable</td><td class="c"></td></tr>
+            <tr><td class="num">4 · 21→25/09</td><td class="c">Vocabulaire — les synonymes</td><td class="c">Cahier d'activités p. 3</td><td class="c">Employer des synonymes à bon escient</td><td class="c"></td></tr>
+            <tr><td class="num">5 · 28/09→02/10</td><td class="c">Orthographe — le pluriel des noms</td><td class="c">Manuel d'orthographe p. 15–17</td><td class="c">Former le pluriel des noms en -al / -ail</td><td class="c"></td></tr>
+            <!-- Octobre -->
+            <tr><td class="mois" rowspan="4">Octobre</td><td class="num">6 · 05→09/10</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">7 · 12→16/10</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">8 · 19→23/10</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">9 · 26→30/10</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr class="band"><td colspan="6">1<sup>re</sup> évaluation · 1<sup>re</sup> période + détente — du 02 au 06/11/2026</td></tr>
+            <!-- Novembre -->
+            <tr><td class="mois" rowspan="4">Novembre</td><td class="num">10 · 09→13/11</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">11 · 16→20/11</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">12 · 23→27/11</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">13 · 30/11→04/12</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <!-- Décembre -->
+            <tr><td class="mois" rowspan="4">Décembre</td><td class="num">14 · 07→11/12</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">15 · 14→18/12</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">16 · 21→25/12</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">17 · 28/12→01/01</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <!-- Janvier -->
+            <tr><td class="mois" rowspan="4">Janvier</td><td class="num">18 · 04→08/01</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">19 · 11→15/01</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">20 · 18→22/01</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">21 · 25→29/01</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr class="band"><td colspan="6">Révision + examens hors session · 1<sup>er</sup> trimestre</td></tr>
+            <tr class="band"><td colspan="6">Examens du 1<sup>er</sup> trimestre</td></tr>
+            <tr class="band"><td colspan="6">Vacances de Noël</td></tr>
+          </tbody>
+        </table>
+        <div class="page-note">— Page 1 / 2 —</div>
+      </div>
+    </div>
+
+    <!-- ================= PAGE 2 (paysage) ================= -->
+    <div class="sheet break-page">
+      <div class="wm"><span>Brouillon</span></div>
+      <div class="doc">
+        <div class="hdr">
+          <div class="school">COMPLEXE SCOLAIRE SILOE</div>
+          <div class="addr">2938/40, AV. LES ÉLITES — Q/GAMBELA — C/LUBUMBASHI</div>
+          <div class="annee">ANNÉE SCOLAIRE 2026 – 2027</div>
+        </div>
+        <div class="doc-title">Prévision annuelle</div>
+        <table class="fields">
+          <tr>
+            <td class="lbl">SECTION :</td><td class="val">PRIMAIRE</td>
+            <td class="lbl">CLASSE :</td><td class="val">6<sup>e</sup> B</td>
+            <td class="lbl">TITULAIRE :</td><td class="val">Mme Mbuyi</td>
+          </tr>
+          <tr>
+            <td class="lbl">BRANCHE :</td><td class="val">FRANÇAIS</td>
+            <td class="lbl">SOUS-BRANCHE :</td><td class="val">GRAMMAIRE</td>
+            <td></td><td></td>
+          </tr>
+        </table>
+
+        <table class="grid">
+          <thead>
+            <tr>
+              <th style="width:74px">Mois</th>
+              <th style="width:118px">Semaine — Date</th>
+              <th>Matières à enseigner</th>
+              <th style="width:180px">Réf.</th>
+              <th style="width:220px">Intention</th>
+              <th style="width:60px">Obs.</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Février -->
+            <tr><td class="mois" rowspan="4">Février</td><td class="num">22 · 01→05/02</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">23 · 08→12/02</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">24 · 15→19/02</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">25 · 22→26/02</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr class="band"><td colspan="6">Évaluation · 2<sup>e</sup> trimestre + détente</td></tr>
+            <!-- Mars -->
+            <tr><td class="mois" rowspan="5">Mars</td><td class="num">26 · 01→05/03</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">27 · 08→12/03</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">28 · 15→19/03</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">29 · 22→26/03</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">30 · 29/03→02/04</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr class="band"><td colspan="6">Examens du 2<sup>e</sup> trimestre</td></tr>
+            <tr class="band"><td colspan="6">Vacances de Pâques</td></tr>
+            <!-- Avril -->
+            <tr><td class="mois" rowspan="4">Avril</td><td class="num">31 · 05→09/04</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">32 · 12→16/04</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">33 · 19→23/04</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">34 · 26→30/04</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <!-- Mai -->
+            <tr><td class="mois" rowspan="4">Mai</td><td class="num">35 · 03→07/05</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">36 · 10→14/05</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">37 · 17→21/05</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">38 · 24→27/05</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <!-- Juin -->
+            <tr><td class="mois" rowspan="4">Juin</td><td class="num">39 · 01→04/06</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">40 · 07→11/06</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">41 · 14→18/06</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="num">42 · 21→25/06</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr class="band"><td colspan="6">Examens de fin d'année · calcul des points</td></tr>
+            <!-- Juillet -->
+            <tr><td class="mois">Juillet</td><td class="num">43 · 28/06→02/07</td><td class="c"></td><td class="c"></td><td class="c"></td><td class="c"></td></tr>
+            <tr class="band"><td colspan="6">Proclamation et remise des bulletins · certificat de clôture</td></tr>
+          </tbody>
+        </table>
+
+        <div class="sign">
+          <div class="fait">Fait à Lubumbashi, le 02/09/2026</div>
+          <div class="dir"><div>LA DIRECTION</div><div class="l1">…………………………………</div></div>
+        </div>
+        <div class="page-note">— Page 2 / 2 —</div>
+      </div>
+    </div>
+  </div>
+  <div class="mock-flag">MAQUETTE · NON FONCTIONNELLE</div>
+</body>
+</html>

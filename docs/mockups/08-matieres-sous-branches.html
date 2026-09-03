@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Branches & sous-branches — Prévisions Matières (maquette)</title>
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  .demo { font-size: 12px; color: var(--text-3); }
+  .section-tag { display:inline-block; font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:999px; margin-left:4px; }
+  .tag-prim { background:var(--primary-soft); color:var(--primary-strong); }
+  .tag-sec { background:#e7f5ec; color:#166534; }
+  .tag-both { background:#eef2ff; color:#3730a3; }
+  .sub-row { display:flex; gap:8px; align-items:center; padding:5px 8px 5px 26px; font-size:13px; }
+  .sub-row + .sub-row { border-top:1px dashed var(--border); }
+  .chip-sb { display:inline-block; font-size:11px; font-weight:600; background:var(--surface-2); border:1px solid var(--border); border-radius:999px; padding:1px 8px; margin:1px 3px 1px 0; }
+  .sb-add { display:inline-flex; align-items:center; gap:5px; color:var(--primary); font-size:12.5px; font-weight:600; cursor:pointer; border:none; background:none; padding:4px 6px; }
+  .sb-add:hover { text-decoration:underline; }
+  .filter-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="nav-scrim" onclick="document.body.classList.remove('nav-open')"></div>
+  <aside class="sidebar">
+    <div class="side-logo"><div class="crest">S</div><div><div class="name">Prévisions Matières</div><div class="sub">Complexe Scolaire SILOE</div></div></div>
+    <nav class="side-nav">
+      <div class="nav-section">Supervision</div>
+      <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg> Toutes les fiches</a>
+      <div class="nav-section">Administration</div>
+      <a class="nav-item" href="06-gestion-utilisateurs.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Utilisateurs</a>
+      <a class="nav-item" href="07-structure.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Structure scolaire</a>
+      <a class="nav-item active" href="08-matieres-sous-branches.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> Branches & sous-branches</a>
+      <a class="nav-item" href="09-affectations.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Attributions</a>
+      <div class="nav-section">Calendrier</div>
+      <a class="nav-item" href="10-calendrier.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Calendrier & modèles</a>
+      <div class="nav-section">Notifications</div>
+      <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg> Notifications <span class="nav-badge">2</span></a>
+    </nav>
+    <div class="side-foot"><div class="user-box"><div class="avatar">DN</div><div><div class="u-name">Direction</div><div class="u-role">Super admin</div></div></div></div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" onclick="document.body.classList.add('nav-open')" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+      <div class="page-title">Branches & sous-branches</div>
+      <div class="spacer"></div>
+      <span class="year-chip">Année 2026 – 2027</span>
+      <span class="sync-pill sync-online"><span class="dot"></span> En ligne</span>
+    </header>
+
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Catalogue des branches</h1>
+          <div class="desc">Une branche peut être utilisée en primaire et/ou secondaire et peut avoir des sous-branches</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-ghost btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg> Importer (CSV)</button>
+          <button class="btn btn-primary btn-sm" onclick="openModal('ajout')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> Nouvelle branche</button>
+        </div>
+      </div>
+
+      <!-- Filtres -->
+      <div class="filter-bar mb12">
+        <div class="field" style="flex:0 1 300px;min-width:220px;"><input class="input" id="q" placeholder="Rechercher une branche…" oninput="filterRows()"></div>
+        <select class="select" id="f-section" style="width:auto;" onchange="filterRows()"><option value="">Toutes les sections</option><option value="both">Primaire + Secondaire</option><option value="prim">Primaire</option><option value="sec">Secondaire</option></select>
+        <select class="select" id="f-sous" style="width:auto;" onchange="filterRows()"><option value="">Avec ou sans sous-branches</option><option value="yes">Avec sous-branches</option><option value="no">Sans sous-branche</option></select>
+        <span class="demo" id="count" style="margin-left:auto"></span>
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table class="data" id="tbl">
+            <thead><tr><th>Branche</th><th>Section(s)</th><th>Sous-branches</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody>
+              <tr data-section="both" data-sous="yes"><td><strong>Français</strong></td><td><span class="section-tag tag-both">Primaire + Secondaire</span></td><td><span class="chip-sb">Grammaire</span><span class="chip-sb">Conjugaison</span><span class="chip-sb">Orthographe</span><span class="chip-sb">Vocabulaire</span><span class="chip-sb">Lecture</span><span class="chip-sb">Rédaction</span></td><td style="text-align:right"><button class="btn btn-ghost btn-sm" onclick="openModal('modif')">Modifier</button></td></tr>
+              <tr data-section="both" data-sous="yes"><td><strong>Mathématiques</strong></td><td><span class="section-tag tag-both">Primaire + Secondaire</span></td><td><span class="chip-sb">Arithmétique</span><span class="chip-sb">Géométrie</span></td><td style="text-align:right"><button class="btn btn-ghost btn-sm" onclick="openModal('modif')">Modifier</button></td></tr>
+              <tr data-section="both" data-sous="yes"><td><strong>Sciences & technologie</strong></td><td><span class="section-tag tag-both">Primaire + Secondaire</span></td><td><span class="chip-sb">Sciences de la vie</span><span class="chip-sb">Sciences physiques</span></td><td style="text-align:right"><button class="btn btn-ghost btn-sm" onclick="openModal('modif')">Modifier</button></td></tr>
+              <tr data-section="prim" data-sous="yes"><td><strong>Éveil</strong></td><td><span class="section-tag tag-prim">Primaire</span></td><td><span class="chip-sb">Éveil scientifique</span><span class="chip-sb">Éveil social</span></td><td style="text-align:right"><button class="btn btn-ghost btn-sm" onclick="openModal('modif')">Modifier</button></td></tr>
+              <tr data-section="sec" data-sous="no"><td><strong>Histoire</strong></td><td><span class="section-tag tag-sec">Secondaire</span></td><td class="muted">—</td><td style="text-align:right"><button class="btn btn-ghost btn-sm" onclick="openModal('modif')">Modifier</button></td></tr>
+              <tr data-section="sec" data-sous="no"><td><strong>Géographie</strong></td><td><span class="section-tag tag-sec">Secondaire</span></td><td class="muted">—</td><td style="text-align:right"><button class="btn btn-ghost btn-sm" onclick="openModal('modif')">Modifier</button></td></tr>
+              <tr data-section="both" data-sous="no"><td><strong>Anglais</strong></td><td><span class="section-tag tag-both">Primaire + Secondaire</span></td><td class="muted">—</td><td style="text-align:right"><button class="btn btn-ghost btn-sm" onclick="openModal('modif')">Modifier</button></td></tr>
+              <tr data-section="both" data-sous="no"><td><strong>Éducation physique</strong></td><td><span class="section-tag tag-both">Primaire + Secondaire</span></td><td class="muted">—</td><td style="text-align:right"><button class="btn btn-ghost btn-sm" onclick="openModal('modif')">Modifier</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p class="hint" style="margin-top:10px">💡 Les sous-branches servent surtout en <strong>primaire</strong> (ex. Français → Grammaire). En secondaire, la branche seule suffit généralement.</p>
+    </div>
+  </div>
+</div>
+
+<!-- MODALE : Nouvelle branche -->
+<div class="modal-backdrop" id="modal-ajout">
+  <div class="modal" style="width:520px">
+    <div class="modal-head"><h3>Nouvelle branche</h3></div>
+    <div class="modal-body">
+      <div class="field"><label>Nom de la branche</label><input class="input" placeholder="Ex. Éducation civique"></div>
+      <div class="field mt12"><label>Utilisable en</label>
+        <div style="display:flex;gap:16px;margin-top:4px;">
+          <label style="display:flex;gap:7px;align-items:center;font-size:13.5px;color:var(--text-2);"><input type="checkbox" checked> Primaire</label>
+          <label style="display:flex;gap:7px;align-items:center;font-size:13.5px;color:var(--text-2);"><input type="checkbox" checked> Secondaire</label>
+        </div>
+      </div>
+      <div class="field mt12"><label>Sous-branches <span class="muted">(optionnel)</span></label>
+        <div id="sb-list-add">
+          <div class="sb-editor-row" style="display:flex;gap:6px;margin-bottom:6px;align-items:center;"><input class="input grow" placeholder="Ex. Grammaire"><button class="icon-btn" style="border:1px solid var(--border);border-radius:6px;" title="Retirer">✕</button></div>
+        </div>
+        <button class="sb-add" type="button">＋ Ajouter une sous-branche</button>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('ajout')">Annuler</button>
+      <button class="btn btn-primary" onclick="closeModal('ajout')">Créer la branche</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODALE : Modifier branche -->
+<div class="modal-backdrop" id="modal-modif">
+  <div class="modal" style="width:520px">
+    <div class="modal-head"><h3>Modifier la branche</h3></div>
+    <div class="modal-body">
+      <div class="field"><label>Nom de la branche</label><input class="input" value="Français"></div>
+      <div class="field mt12"><label>Utilisable en</label>
+        <div style="display:flex;gap:16px;margin-top:4px;">
+          <label style="display:flex;gap:7px;align-items:center;font-size:13.5px;color:var(--text-2);"><input type="checkbox" checked> Primaire</label>
+          <label style="display:flex;gap:7px;align-items:center;font-size:13.5px;color:var(--text-2);"><input type="checkbox" checked> Secondaire</label>
+        </div>
+      </div>
+      <div class="field mt12"><label>Sous-branches</label>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;gap:6px;align-items:center;"><input class="input grow" value="Grammaire"><button class="icon-btn" style="border:1px solid var(--border);border-radius:6px;" title="Retirer">✕</button></div>
+          <div style="display:flex;gap:6px;align-items:center;"><input class="input grow" value="Conjugaison"><button class="icon-btn" style="border:1px solid var(--border);border-radius:6px;" title="Retirer">✕</button></div>
+          <div style="display:flex;gap:6px;align-items:center;"><input class="input grow" value="Orthographe"><button class="icon-btn" style="border:1px solid var(--border);border-radius:6px;" title="Retirer">✕</button></div>
+        </div>
+        <button class="sb-add" type="button">＋ Ajouter une sous-branche</button>
+      </div>
+      <div class="hint mt8">Les sous-branches déjà utilisées dans des fiches ne sont pas supprimables sans confirmation.</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modif')">Annuler</button>
+      <button class="btn btn-primary" onclick="closeModal('modif')">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div class="mock-flag">MAQUETTE · NON FONCTIONNELLE</div>
+<script>
+  function openModal(n){ document.getElementById('modal-'+n).classList.add('open'); }
+  function closeModal(n){ document.getElementById('modal-'+n).classList.remove('open'); }
+  document.querySelectorAll('.modal-backdrop').forEach(b=>{ b.addEventListener('click', e=>{ if(e.target===b) b.classList.remove('open'); }); });
+  function filterRows(){
+    var q = (document.getElementById('q').value||'').toLowerCase().trim();
+    var fs = document.getElementById('f-section').value;
+    var fy = document.getElementById('f-sous').value;
+    var rows = document.querySelectorAll('#tbl tbody tr'); var shown=0;
+    rows.forEach(function(r){
+      var ok = true;
+      if (fs && r.dataset.section !== fs) ok=false;
+      if (fy && r.dataset.sous !== fy) ok=false;
+      if (ok && q && !r.textContent.toLowerCase().includes(q)) ok=false;
+      r.style.display = ok ? '' : 'none';
+      if (ok) shown++;
+    });
+    document.getElementById('count').textContent = shown + ' branche(s) affichée(s)';
+  }
+  filterRows();
+  (function(){ var q=new URLSearchParams(location.search).get('modal'); if(q==='ajout'||q==='modif') openModal(q); })();
+</script>
+</body>
+</html>

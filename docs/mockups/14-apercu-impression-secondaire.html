@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aperçu impression · Prévision des matières Secondaire — maquette</title>
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  body { background: #e9edf2; }
+  .toolbar { position: sticky; top: 0; z-index: 30; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .toolbar-in { display: flex; align-items: center; gap: 14px; padding: 10px 18px; flex-wrap: wrap; max-width: 1200px; margin: 0 auto; }
+  .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--text-2); cursor: pointer; border: none; background: none; padding: 6px 8px; border-radius: 6px; }
+  .back-link:hover { background: var(--surface-2); color: var(--text); }
+  .back-link svg { width: 16px; height: 16px; }
+  .toolbar .title { font-weight: 700; font-size: 14.5px; }
+  .preview-wrap { max-width: 1160px; margin: 22px auto 60px; display: flex; flex-direction: column; gap: 26px; align-items: center; }
+  .sheet { width: 1080px; max-width: 97%; background: #fff; box-shadow: 0 6px 24px rgba(23,32,46,.18); padding: 40px 44px 34px; position: relative; }
+  .sheet + .sheet { margin-top: 4px; }
+  .page-note { font-size: 11px; color: var(--text-3); text-align: center; margin-top: 12px; letter-spacing: .3px; }
+  .sheet .wm { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .sheet .wm span { font-size: 96px; font-weight: 800; letter-spacing: 12px; color: rgba(200,30,30,.10); transform: rotate(-24deg); text-transform: uppercase; white-space: nowrap; }
+
+  .doc { font-family: "Times New Roman", Georgia, serif; color: #000; font-size: 11.5px; line-height: 1.35; }
+  .doc .hdr { text-align: center; font-size: 11px; margin-bottom: 4px; }
+  .doc .hdr .school { font-weight: 700; font-size: 12.5px; }
+  .doc .hdr .addr { font-size: 10px; }
+  .doc .hdr .annee { font-weight: 700; }
+  .doc .doc-title { text-align: center; font-weight: 700; text-transform: uppercase; font-size: 16px; letter-spacing: 2px; margin: 10px 0 6px; }
+  .doc .fields { width: 100%; margin: 2px 0 8px; border-collapse: collapse; }
+  .doc .fields td { border: none; padding: 1px 4px; font-size: 11px; vertical-align: bottom; }
+  .doc .fields .lbl { font-weight: 700; white-space: nowrap; }
+  .doc .fields .val { border-bottom: 1px solid #000; min-width: 110px; padding: 0 4px 1px; text-align: center; }
+  .doc table.grid { width: 100%; border-collapse: collapse; font-size: 10px; }
+  .doc table.grid th, .doc table.grid td { border: 1px solid #000; padding: 3px 5px; vertical-align: top; }
+  .doc table.grid th { background: #f1f1f1; font-weight: 700; text-align: center; font-size: 9px; text-transform: uppercase; letter-spacing: .3px; }
+  .doc table.grid td.num { text-align: center; vertical-align: middle; font-weight: 700; width: 32px; }
+  .doc table.grid td.dates { text-align: center; vertical-align: middle; white-space: nowrap; width: 150px; }
+  .doc table.grid td.heur { text-align: center; vertical-align: middle; width: 50px; }
+  .doc table.grid td.mv { width: 130px; }
+  .doc table.grid td.obs { width: 100px; }
+  .doc table.grid td.period { font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: .3px; background: #f1f1f1; font-size: 9px; }
+  .doc table.grid td.band { font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: .3px; background: #fbfbf7; font-size: 9px; }
+  .doc .sign { display: flex; justify-content: space-between; margin-top: 24px; font-size: 11px; }
+  .doc .sign .fait { font-size: 11px; }
+  .doc .sign .dir { text-align: center; }
+  .doc .sign .dir .l1 { font-weight: 700; margin-top: 34px; }
+  .break-page { page-break-before: always; }
+  @media print {
+    body { background: #fff; }
+    .no-print { display: none !important; }
+    .preview-wrap { max-width: none; margin: 0; gap: 0; }
+    .sheet { width: auto; max-width: none; box-shadow: none; padding: 8mm; margin: 0; }
+    .sheet .wm { display: none; }
+    .sheet + .sheet { margin-top: 0; }
+    .break-page { page-break-before: always; }
+  }
+</style>
+</head>
+<body>
+  <div class="toolbar no-print">
+    <div class="toolbar-in">
+      <a class="back-link" href="04-editeur-secondaire.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+        Retour à l'éditeur
+      </a>
+      <div class="title">Aperçu impression · Prévision des matières — Secondaire</div>
+      <div class="spacer"></div>
+      <span class="chip chip-brouillon"><span class="dot"></span>Brouillon</span>
+      <button class="btn btn-ghost btn-sm" onclick="history.length>1?history.back():location.href='04-editeur-secondaire.html'">Fermer</button>
+      <button class="btn btn-primary btn-sm" onclick="window.print()">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+        Imprimer / PDF
+      </button>
+    </div>
+  </div>
+
+  <div class="preview-wrap">
+    <div class="hint no-print" style="color:var(--text-3); font-size:12.5px; text-align:center; max-width:900px;">
+      Reproduction fidèle du formulaire secondaire papier (A4 <strong>paysage</strong>). Les brouillons portent un filigrane « BROUILLON » ; les fiches soumises sont imprimées sans filigrane.
+    </div>
+
+    <!-- PAGE 1 -->
+    <div class="sheet">
+      <div class="wm"><span>Brouillon</span></div>
+      <div class="doc">
+        <div class="hdr">
+          <div class="school">COMPLEXE SCOLAIRE SILOE</div>
+          <div class="addr">2938/40, AV. LES ÉLITES — Q/GAMBELA — C/LUBUMBASHI</div>
+          <div class="annee">ANNÉE SCOLAIRE 2026 – 2027</div>
+        </div>
+        <div class="doc-title">Prévision des matières</div>
+        <table class="fields">
+          <tr>
+            <td class="lbl">PROFESSEUR :</td><td class="val">M. KAZADI</td>
+            <td class="lbl">CLASSE :</td><td class="val">6<sup>e</sup> B</td>
+            <td class="lbl">BRANCHE :</td><td class="val">MATHÉMATIQUES</td>
+          </tr>
+        </table>
+
+        <table class="grid">
+          <thead>
+            <tr>
+              <th style="width:32px">N</th>
+              <th style="width:150px">Semaines</th>
+              <th style="width:50px">Heure</th>
+              <th>Matières prévues</th>
+              <th style="width:130px">M.V.</th>
+              <th style="width:100px">Obs.</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="period" colspan="6">1<sup>re</sup> période</td></tr>
+            <tr><td class="num">1</td><td class="dates">Du 01/09 → 04/09/2026</td><td class="heur">4h</td><td>Nombres entiers — rappels (ensembles, opérations)</td><td class="mv">Notation scientifique</td><td class="obs"></td></tr>
+            <tr><td class="num">2</td><td class="dates">Du 07/09 → 11/09/2026</td><td class="heur">4h</td><td>Fractions — addition et soustraction</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">3</td><td class="dates">Du 14/09 → 18/09/2026</td><td class="heur">4h</td><td>Fractions — multiplication et division</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">4</td><td class="dates">Du 21/09 → 25/09/2026</td><td class="heur">4h</td><td>Puissances — règles de calcul</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">5</td><td class="dates">Du 28/09 → 02/10/2026</td><td class="heur">4h</td><td>Géométrie — droites et angles</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">6</td><td class="dates">Du 05/10 → 09/10/2026</td><td class="heur">4h</td><td>Triangles — somme des angles, inégalité</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">7</td><td class="dates">Du 12/10 → 16/10/2026</td><td class="heur">4h</td><td>Calcul littéral — expressions, distributivité</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">8</td><td class="dates">Du 19/10 → 23/10/2026</td><td class="heur">4h</td><td>Équations du 1<sup>er</sup> degré — résolution</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">9</td><td class="dates">Du 26/10 → 30/10/2026</td><td class="heur">4h</td><td>Révision — 1<sup>re</sup> période</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="band" colspan="6">Du 02/11 → 04/11/2026 · Détente</td></tr>
+            <tr><td class="period" colspan="6">2<sup>e</sup> période</td></tr>
+            <tr><td class="num">10</td><td class="dates">Du 09/11 → 13/11/2026</td><td class="heur">4h</td><td>Inéquations — résolution et représentation</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">11</td><td class="dates">Du 16/11 → 20/11/2026</td><td class="heur">4h</td><td>Proportionnalité — pourcentages</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">12</td><td class="dates">Du 23/11 → 27/11/2026</td><td class="heur">4h</td><td>Statistiques — tableaux et graphiques</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">13</td><td class="dates">Du 30/11 → 04/12/2026</td><td class="heur">4h</td><td>Repérage — coordonnées, distances</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">14</td><td class="dates">Du 07/12 → 11/12/2026</td><td class="heur">4h</td><td>Fonctions — vocabulaire et lectures graphiques</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">15</td><td class="dates">Du 14/12 → 18/12/2026</td><td class="heur">4h</td><td>Révision générale — 1<sup>er</sup> semestre</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">16</td><td class="dates">Du 21/12 → 22/12/2026</td><td class="heur">2h</td><td>Clôture 1<sup>er</sup> semestre — exercices</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr class="band-row"><td class="band" colspan="6">Du 23/12 → 09/01/2027 · Vacances de Noël et fin d'année</td></tr>
+          </tbody>
+        </table>
+        <div class="page-note">— Page 1 / 2 —</div>
+      </div>
+    </div>
+
+    <!-- PAGE 2 -->
+    <div class="sheet break-page">
+      <div class="wm"><span>Brouillon</span></div>
+      <div class="doc">
+        <div class="hdr">
+          <div class="school">COMPLEXE SCOLAIRE SILOE</div>
+          <div class="addr">2938/40, AV. LES ÉLITES — Q/GAMBELA — C/LUBUMBASHI</div>
+          <div class="annee">ANNÉE SCOLAIRE 2026 – 2027</div>
+        </div>
+        <div class="doc-title">Prévision des matières</div>
+        <table class="fields">
+          <tr>
+            <td class="lbl">PROFESSEUR :</td><td class="val">M. KAZADI</td>
+            <td class="lbl">CLASSE :</td><td class="val">6<sup>e</sup> B</td>
+            <td class="lbl">BRANCHE :</td><td class="val">MATHÉMATIQUES</td>
+          </tr>
+        </table>
+
+        <table class="grid">
+          <thead>
+            <tr>
+              <th style="width:32px">N</th>
+              <th style="width:150px">Semaines</th>
+              <th style="width:50px">Heure</th>
+              <th>Matières prévues</th>
+              <th style="width:130px">M.V.</th>
+              <th style="width:100px">Obs.</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="num">17</td><td class="dates">Du 11/01 → 15/01/2027</td><td class="heur">4h</td><td>Théorème de Pythagore — découverte</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">18</td><td class="dates">Du 18/01 → 22/01/2027</td><td class="heur">4h</td><td>Pythagore — applications et exercices</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">19</td><td class="dates">Du 25/01 → 29/01/2027</td><td class="heur">4h</td><td>Fractions et nombres rationnels — synthèse</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">20</td><td class="dates">Du 01/02 → 04/02/2027</td><td class="heur">4h</td><td>Exercices bilan — 1<sup>er</sup> semestre</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="band" colspan="6">Du 05/02 → 08/02/2027 · Révision</td></tr>
+            <tr><td class="band" colspan="6">Du 09/02 → 17/02/2027 · Examens 1<sup>er</sup> semestre</td></tr>
+            <tr><td class="band" colspan="6">Du 18/02 → 20/02/2027 · Détente</td></tr>
+            <tr><td class="period" colspan="6">3<sup>e</sup> période</td></tr>
+            <tr><td class="num">21</td><td class="dates">Du 22/02 → 26/02/2027</td><td class="heur">4h</td><td>Théorème de Thalès — configuration</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">22</td><td class="dates">Du 01/03 → 05/03/2027</td><td class="heur">4h</td><td>Thalès — applications</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">23</td><td class="dates">Du 08/03 → 12/03/2027</td><td class="heur">4h</td><td>Trigonométrie — cosinus d'un angle aigu</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">24</td><td class="dates">Du 15/03 → 19/03/2027</td><td class="heur">4h</td><td>Cosinus — applications, calculs de longueurs</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">25</td><td class="dates">Du 22/03 → 26/03/2027</td><td class="heur">4h</td><td>Géométrie dans l'espace — prismes et cylindres</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="band" colspan="6">Du 29/03 → 03/04/2027 · Vacances de Pâques</td></tr>
+            <tr><td class="num">26</td><td class="dates">Du 05/04 → 09/04/2027</td><td class="heur">4h</td><td>Volumes — calculs (prisme, cylindre)</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">27</td><td class="dates">Du 12/04 → 16/04/2027</td><td class="heur">4h</td><td>Notion de fonction linéaire</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">28</td><td class="dates">Du 19/04 → 23/04/2027</td><td class="heur">4h</td><td>Représentation graphique d'une fonction linéaire</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">29</td><td class="dates">Du 26/04 → 30/04/2027</td><td class="heur">4h</td><td>Systèmes d'équations — résolution</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">30</td><td class="dates">Du 03/05 → 07/05/2027</td><td class="heur">4h</td><td>Systèmes — applications et problèmes</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">31</td><td class="dates">Du 10/05 → 14/05/2027</td><td class="heur">4h</td><td>Statistiques — moyenne, médiane</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">32</td><td class="dates">Du 17/05 → 21/05/2027</td><td class="heur">4h</td><td>Probabilités — vocabulaire, expériences simples</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">33</td><td class="dates">Du 24/05 → 28/05/2027</td><td class="heur">4h</td><td>Révision générale — 2<sup>e</sup> semestre</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="num">34</td><td class="dates">Du 31/05 → 01/06/2027</td><td class="heur">2h</td><td>Révision — examens</td><td class="mv"></td><td class="obs"></td></tr>
+            <tr><td class="band" colspan="6">Du 03/06 → 11/06/2027 · Examens 2<sup>e</sup> semestre</td></tr>
+          </tbody>
+        </table>
+
+        <div class="sign">
+          <div class="fait">Fait à Lubumbashi, le 02/09/2026</div>
+          <div class="dir"><div>LE PRÉFET / D.E.</div><div class="l1">…………………………………</div></div>
+        </div>
+        <div class="page-note">— Page 2 / 2 —</div>
+      </div>
+    </div>
+  </div>
+  <div class="mock-flag">MAQUETTE · NON FONCTIONNELLE</div>
+</body>
+</html>

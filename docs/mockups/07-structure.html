@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Structure scolaire — Prévisions Matières (maquette)</title>
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  .demo { font-size: 12px; color: var(--text-3); }
+  .class-card { border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); padding:14px 16px; }
+  .class-card .head { display:flex; align-items:center; gap:8px; font-weight:700; }
+  .class-card .meta { font-size:12px; color:var(--text-3); margin-top:2px; }
+  .seg { display:flex; border:1px solid var(--border-strong); border-radius:8px; overflow:hidden; }
+  .seg button { border:none; background:var(--surface); padding:8px 14px; font-weight:600; font-size:13px; color:var(--text-2); cursor:pointer; }
+  .seg button.active { background:var(--primary-soft); color:var(--primary-strong); }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="nav-scrim" onclick="document.body.classList.remove('nav-open')"></div>
+
+  <!-- SIDEBAR (super admin) -->
+  <aside class="sidebar">
+    <div class="side-logo"><div class="crest">S</div><div><div class="name">Prévisions Matières</div><div class="sub">Complexe Scolaire SILOE</div></div></div>
+    <nav class="side-nav">
+      <div class="nav-section">Supervision</div>
+      <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg> Toutes les fiches</a>
+      <div class="nav-section">Administration</div>
+      <a class="nav-item" href="06-gestion-utilisateurs.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Utilisateurs</a>
+      <a class="nav-item active" href="07-structure.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Structure scolaire</a>
+      <a class="nav-item" href="08-matieres-sous-branches.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> Branches & sous-branches</a>
+      <a class="nav-item" href="09-affectations.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Affectations</a>
+      <div class="nav-section">Calendrier</div>
+      <a class="nav-item" href="10-calendrier.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Calendrier & modèles</a>
+      <div class="nav-section">Notifications</div>
+      <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg> Notifications <span class="nav-badge">2</span></a>
+    </nav>
+    <div class="side-foot"><div class="user-box"><div class="avatar">DN</div><div><div class="u-name">Direction</div><div class="u-role">Super admin</div></div></div></div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" onclick="document.body.classList.add('nav-open')" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+      <div class="page-title">Structure scolaire</div>
+      <div class="spacer"></div>
+      <span class="year-chip">Année 2026 – 2027</span>
+      <span class="sync-pill sync-online"><span class="dot"></span> En ligne</span>
+    </header>
+
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Structure scolaire</h1>
+          <div class="desc">Sections, classes et titulaires par année scolaire</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-ghost btn-sm">Changer d'année…</button>
+          <button class="btn btn-ghost btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg> Importer (CSV)</button>
+          <button class="btn btn-primary btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> Ajouter une classe</button>
+        </div>
+      </div>
+
+      <div class="seg mb12" style="width:max-content">
+        <button>Primaire</button>
+        <button class="active">Secondaire</button>
+      </div>
+
+      <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));">
+        <div class="card card-pad stat"><span class="label">Classes</span><span class="value">12</span><span class="foot">De la 7<sup>e</sup> à la 6<sup>e</sup></span></div>
+        <div class="card card-pad stat"><span class="label">Fiches attendues</span><span class="value">168</span><span class="foot">≈ 14 matières × 12 classes</span></div>
+        <div class="card card-pad stat"><span class="label">Titulaires</span><span class="value">12</span><span class="foot">1 par classe</span></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;">
+        <div class="class-card"><div class="head"><span class="chip chip-brouillon" style="font-size:10px;padding:1px 7px;">2<sup>nde</sup></span> 2<sup>nde</sup> A</div><div class="meta">Titulaire : M. Kazadi</div><div class="meta">Cours : <strong>12</strong></div></div>
+        <div class="class-card"><div class="head"><span class="chip chip-brouillon" style="font-size:10px;padding:1px 7px;">2<sup>nde</sup></span> 2<sup>nde</sup> B</div><div class="meta">Titulaire : Mme Tshala</div><div class="meta">Cours : <strong>12</strong></div></div>
+        <div class="class-card"><div class="head"><span class="chip chip-brouillon" style="font-size:10px;padding:1px 7px;">3<sup>e</sup></span> 3<sup>e</sup> A</div><div class="meta">Titulaire : M. Kalala</div><div class="meta">Cours : <strong>13</strong></div></div>
+        <div class="class-card"><div class="head"><span class="chip chip-brouillon" style="font-size:10px;padding:1px 7px;">3<sup>e</sup></span> 3<sup>e</sup> B</div><div class="meta">Titulaire : Mme Mutombo</div><div class="meta">Cours : <strong>13</strong></div></div>
+        <div class="class-card"><div class="head"><span class="chip chip-brouillon" style="font-size:10px;padding:1px 7px;">4<sup>e</sup></span> 4<sup>e</sup> A</div><div class="meta">Titulaire : M. Ngoy</div><div class="meta">Cours : <strong>13</strong></div></div>
+        <div class="class-card"><div class="head"><span class="chip chip-brouillon" style="font-size:10px;padding:1px 7px;">4<sup>e</sup></span> 4<sup>e</sup> B</div><div class="meta">Titulaire : Mme Ilunga</div><div class="meta">Cours : <strong>13</strong></div></div>
+        <div class="class-card"><div class="head"><span class="chip chip-brouillon" style="font-size:10px;padding:1px 7px;">5<sup>e</sup></span> 5<sup>e</sup> A</div><div class="meta">Titulaire : M. Kabeya</div><div class="meta">Cours : <strong>14</strong></div></div>
+        <div class="class-card"><div class="head"><span class="chip chip-brouillon" style="font-size:10px;padding:1px 7px;">5<sup>e</sup></span> 5<sup>e</sup> B</div><div class="meta">Titulaire : Mme Nsenga</div><div class="meta">Cours : <strong>14</strong></div></div>
+        <div class="class-card"><div class="head"><span class="chip chip-brouillon" style="font-size:10px;padding:1px 7px;">6<sup>e</sup></span> 6<sup>e</sup> A</div><div class="meta">Titulaire : M. Mulumba</div><div class="meta">Cours : <strong>14</strong></div></div>
+        <div class="class-card"><div class="head"><span class="chip chip-brouillon" style="font-size:10px;padding:1px 7px;">6<sup>e</sup></span> 6<sup>e</sup> B</div><div class="meta">Titulaire : M. Kazadi (suppl.)</div><div class="meta">Cours : <strong>14</strong></div></div>
+        <div class="class-card"><div class="head"><span class="chip chip-brouillon" style="font-size:10px;padding:1px 7px;">6<sup>e</sup></span> 6<sup>e</sup> C</div><div class="meta">Titulaire : — <span class="muted">(à désigner)</span></div><div class="meta">Cours : <strong>14</strong></div></div>
+      </div>
+      <p class="hint" style="margin-top:12px">💡 La structure est propre à chaque <strong>année scolaire</strong> : au rollover, elle est clonée depuis l'année précédente puis ajustée par les administrateurs de section.</p>
+    </div>
+  </div>
+</div>
+<div class="mock-flag">MAQUETTE · NON FONCTIONNELLE</div>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prévisions Matières — Maquettes (lot 1)</title>
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  .hub { max-width: 1080px; margin: 0 auto; padding: 48px 24px; }
+  .hub h1 { font-size: 26px; margin: 0 0 4px; }
+  .hub p.lead { color: var(--text-2); margin: 0 0 28px; font-size: 14.5px; }
+  .hub-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+  .hub-card { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 18px; text-decoration: none; color: var(--text); box-shadow: var(--shadow-sm); transition: transform .12s, box-shadow .12s; display: flex; flex-direction: column; gap: 8px; }
+  .hub-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); text-decoration: none; }
+  .hub-card .n { font-size: 11px; font-weight: 700; letter-spacing: .6px; color: var(--text-3); text-transform: uppercase; }
+  .hub-card h3 { margin: 0; font-size: 16px; }
+  .hub-card p { margin: 0; font-size: 13px; color: var(--text-2); flex: 1; }
+  .hub-card .go { font-size: 13px; font-weight: 600; color: var(--primary); }
+  .note { margin-top: 30px; font-size: 13px; color: var(--text-2); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; line-height: 1.55; }
+</style>
+</head>
+<body>
+  <div class="hub">
+    <h1>Prévisions Matières — Maquettes</h1>
+    <p class="lead">Complexe Scolaire SILOE · Lot 1 : parcours enseignant — Connexion, Tableau de bord, Éditeur Primaire, Éditeur Secondaire. Maquettes de travail : à valider avant implémentation.</p>
+    <div class="hub-grid">
+      <a class="hub-card" href="01-login.html">
+        <span class="n">Écran 01</span>
+        <h3>Connexion</h3>
+        <p>Authentification e-mail + mot de passe, récupération, mention hors-ligne et reprise de synchronisation.</p>
+        <span class="go">Ouvrir →</span>
+      </a>
+      <a class="hub-card" href="02-dashboard-enseignant.html">
+        <span class="n">Écran 02</span>
+        <h3>Tableau de bord · Enseignant</h3>
+        <p>Vue « Mes fiches » : affectations, états (brouillon/soumise/…), progression, modales de demande de modification et de conflit.</p>
+        <span class="go">Ouvrir →</span>
+      </a>
+      <a class="hub-card" href="03-editeur-primaire.html">
+        <span class="n">Écran 03</span>
+        <h3>Éditeur · Primaire</h3>
+        <p>Grille annuelle conforme au formulaire papier (chaque mois = son propre groupe), colonnes Matières / Réf. / Intention / Obs.</p>
+        <span class="go">Ouvrir →</span>
+      </a>
+      <a class="hub-card" href="04-editeur-secondaire.html">
+        <span class="n">Écran 04</span>
+        <h3>Éditeur · Secondaire</h3>
+        <p>Grille annuelle conforme au formulaire secondaire : N, Semaines, Heure, Matières prévues, M.V., Obs., périodes.</p>
+        <span class="go">Ouvrir →</span>
+      </a>
+      <a class="hub-card" href="05-apercu-impression-primaire.html">
+        <span class="n">Écran 05</span>
+        <h3>Aperçu impression · Primaire</h3>
+        <p>Reproduction A4 paysage du formulaire papier (2 pages), filigrane BROUILLON sur brouillon, impression/PDF.</p>
+        <span class="go">Ouvrir →</span>
+      </a>
+      <a class="hub-card" href="06-gestion-utilisateurs.html">
+        <span class="n">Écran 06</span>
+        <h3>Gestion des utilisateurs · Super admin</h3>
+        <p>Comptes du personnel : rôles (super / admin primaire / admin secondaire / enseignant), section, activation, réinit. mot de passe, import CSV.</p>
+        <span class="go">Ouvrir →</span>
+      </a>
+      <a class="hub-card" href="07-structure.html">
+        <span class="n">Écran 07</span>
+        <h3>Structure scolaire</h3>
+        <p>Sections, classes et titulaires par année scolaire ; cartes de classes avec matières affectées.</p>
+        <span class="go">Ouvrir →</span>
+      </a>
+      <a class="hub-card" href="08-matieres-sous-branches.html">
+        <span class="n">Écran 08</span>
+        <h3>Branches & sous-branches</h3>
+        <p>Catalogue partagé : sections d'usage (primaire / secondaire / les deux), sous-branches (ex. Français → Grammaire).</p>
+        <span class="go">Ouvrir →</span>
+      </a>
+      <a class="hub-card" href="09-affectations.html">
+        <span class="n">Écran 09</span>
+        <h3>Attributions</h3>
+        <p>Classe + matière (+ sous-branche) + enseignant ; chaque affectation génère la fiche annuelle ; import CSV.</p>
+        <span class="go">Ouvrir →</span>
+      </a>
+      <a class="hub-card" href="10-calendrier.html">
+        <span class="n">Écran 10</span>
+        <h3>Calendrier & modèles</h3>
+        <p>Grille mensuelle retenue : navigation par mois, semaines/événements dans les jours, panneau d'édition. (Concept C)</p>
+        <span class="go">Ouvrir →</span>
+      </a>
+      <a class="hub-card" href="10-calendrier-comparer.html">
+        <span class="n">Écran 11</span>
+        <h3>Calendrier — choix</h3>
+        <p>Comparaison des concepts ; la grille mensuelle (C) a été retenue, la table (A) reste disponible.</p>
+        <span class="go">Voir le choix →</span>
+      </a>
+      <a class="hub-card" href="11-suivi-fiches-admin.html">
+        <span class="n">Écran 12</span>
+        <h3>Suivi des fiches · Admin</h3>
+        <p>Oversight de section : stats, onglets (toutes / soumissions / demandes / conflits), approuver/refuser les réouvertures, résoudre conflits.</p>
+        <span class="go">Ouvrir →</span>
+      </a>
+      <a class="hub-card" href="12-notifications.html">
+        <span class="n">Écran 13</span>
+        <h3>Notifications</h3>
+        <p>Centre de notifications in-app : soumissions, demandes, conflits, alertes modèle. Non-lues marquées.</p>
+        <span class="go">Ouvrir →</span>
+      </a>
+      <a class="hub-card" href="13-rollover.html">
+        <span class="n">Écran 14</span>
+        <h3>Nouvelle année scolaire</h3>
+        <p>Assistant de rollover : cloner la structure, étapes (paramètres → structure → révision → calendriers → activation), années archivées.</p>
+        <span class="go">Ouvrir →</span>
+      </a>
+      <a class="hub-card" href="14-apercu-impression-secondaire.html">
+        <span class="n">Écran 15</span>
+        <h3>Aperçu impression · Secondaire</h3>
+        <p>Reproduction A4 paysage du formulaire secondaire (2 pages), filigrane BROUILLON sur brouillon, impression/PDF.</p>
+        <span class="go">Ouvrir →</span>
+      </a>
+    </div>
+    <div class="note"><strong>Périmètre non décidé / à confirmer :</strong> signification exacte de la colonne « M.V. » du formulaire secondaire (en attente de confirmation), colonne « Heure » (heures de cours prévues par semaine — hypothèse à confirmer), format précis des bandeaux de périodes et gestion des événements (évaluations/examens/vacances) dans le secondaire. Les maquettes montrent une hypothèse raisonnable à affiner ensemble.</div>
+  </div>
+  <div class="mock-flag">MAQUETTE · NON FONCTIONNELLE</div>
+</body>
+</html>

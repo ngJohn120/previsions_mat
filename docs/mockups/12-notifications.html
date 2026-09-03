@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notifications — Prévisions Matières (maquette)</title>
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  .demo { font-size: 12px; color: var(--text-3); }
+  .notif { display:flex; gap:12px; padding:12px 16px; align-items:flex-start; border-bottom:1px solid var(--border); }
+  .notif:last-child { border-bottom:none; }
+  .notif.unread { background:#f7faff; }
+  .notif .ico { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .notif .body { flex:1; min-width:0; }
+  .notif .title { font-weight:600; font-size:13.5px; }
+  .notif .time { font-size:11.5px; color:var(--text-3); }
+  .notif .actions { display:flex; gap:6px; margin-top:6px; flex-wrap:wrap; }
+  .dot-unread { width:8px; height:8px; border-radius:50%; background:var(--primary); margin-top:6px; flex-shrink:0; }
+  .empty .dot-unread { display:none; }
+  .ico-soumis { background:var(--primary-soft); color:var(--primary-strong); }
+  .ico-demande { background:var(--warn-bg); color:var(--warn); }
+  .ico-conflit { background:var(--danger-bg); color:var(--danger); }
+  .ico-system { background:var(--surface-2); color:var(--text-2); }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="nav-scrim" onclick="document.body.classList.remove('nav-open')"></div>
+  <aside class="sidebar">
+    <div class="side-logo"><div class="crest">S</div><div><div class="name">Prévisions Matières</div><div class="sub">Complexe Scolaire SILOE</div></div></div>
+    <nav class="side-nav">
+      <div class="nav-section">Espace admin · Secondaire</div>
+      <a class="nav-item" href="11-suivi-fiches-admin.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg> Suivi des fiches</a>
+      <a class="nav-item active" href="12-notifications.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg> Notifications <span class="nav-badge blue">4</span></a>
+      <div class="nav-section">Administration</div>
+      <a class="nav-item" href="07-structure.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Structure scolaire</a>
+      <a class="nav-item" href="08-matieres-sous-branches.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> Branches & sous-branches</a>
+      <a class="nav-item" href="09-affectations.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Attributions</a>
+      <div class="nav-section">Année</div>
+      <a class="nav-item" href="13-rollover.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> Nouvelle année</a>
+    </nav>
+    <div class="side-foot"><div class="user-box"><div class="avatar">DM</div><div><div class="u-name">D. Mukendi</div><div class="u-role">Admin secondaire</div></div></div></div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" onclick="document.body.classList.add('nav-open')" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+      <div class="page-title">Notifications</div>
+      <div class="spacer"></div>
+      <span class="section-chip secondary">Secondaire</span>
+      <span class="year-chip">Année 2026 – 2027</span>
+      <span class="sync-pill sync-online"><span class="dot"></span> En ligne</span>
+    </header>
+
+    <div class="content">
+      <div class="page-head">
+        <div><h1>Notifications</h1><div class="desc">Alertes nécessitant votre attention dans votre section</div></div>
+        <div class="actions">
+          <button class="btn btn-ghost btn-sm">Tout marquer comme lu</button>
+        </div>
+      </div>
+
+      <div class="card" style="max-width:860px;">
+        <!-- Soumission -->
+        <div class="notif">
+          <div class="ico ico-soumis"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg></div>
+          <div class="dot-unread"></div>
+          <div class="body">
+            <div class="title">Fiche soumise · Mathématiques · 6<sup>e</sup> B</div>
+            <div class="time">M. Kazadi a soumis sa prévision annuelle — il y a 12 min</div>
+            <div class="actions"><a class="btn btn-ghost btn-sm" href="11-suivi-fiches-admin.html">Consulter la fiche</a></div>
+          </div>
+        </div>
+        <!-- Demande -->
+        <div class="notif">
+          <div class="ico ico-demande"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></div>
+          <div class="dot-unread"></div>
+          <div class="body">
+            <div class="title">Demande de réouverture · Français · 3<sup>e</sup></div>
+            <div class="time">Mme Mbuyi — « Corriger la semaine 12 » — il y a 1 h</div>
+            <div class="actions"><a class="btn btn-primary btn-sm" href="11-suivi-fiches-admin.html">Traiter la demande</a></div>
+          </div>
+        </div>
+        <!-- Conflit -->
+        <div class="notif">
+          <div class="ico ico-conflit"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg></div>
+          <div class="dot-unread"></div>
+          <div class="body">
+            <div class="title">Conflit détecté · Histoire · 5<sup>e</sup> A</div>
+            <div class="time">Deux appareils ont modifié la même case (semaine 23) — il y a 3 h</div>
+            <div class="actions"><a class="btn btn-ghost btn-sm" href="11-suivi-fiches-admin.html">Résoudre</a></div>
+          </div>
+        </div>
+        <!-- Demande (lue) -->
+        <div class="notif empty">
+          <div class="ico ico-demande"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></div>
+          <div class="body">
+            <div class="title">Demande approuvée · Physique · 2<sup>nde</sup> A</div>
+            <div class="time">Vous avez rouvert la fiche de M. Kazadi — hier, 17:20</div>
+            <div class="actions"><span class="chip chip-soumis" style="font-size:11px;">Traitée</span></div>
+          </div>
+        </div>
+        <!-- System -->
+        <div class="notif empty">
+          <div class="ico ico-system"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
+          <div class="body">
+            <div class="title">Modèle de fiche · Secondaire</div>
+            <div class="time">Nouvelle version v4 du calendrier disponible (proposée par la direction) — il y a 2 j</div>
+            <div class="actions"><a class="btn btn-ghost btn-sm" href="10-calendrier.html">Voir le modèle</a></div>
+          </div>
+        </div>
+      </div>
+      <p class="hint" style="margin-top:10px">💡 Les notifications sont internes à l'application (pas d'e-mail). Un point bleu signale les non-lues.</p>
+    </div>
+  </div>
+</div>
+<div class="mock-flag">MAQUETTE · NON FONCTIONNELLE</div>
+</body>
+</html>

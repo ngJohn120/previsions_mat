@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nouvelle année scolaire — Prévisions Matières (maquette)</title>
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  .demo { font-size: 12px; color: var(--text-3); }
+  .year-card { border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); padding:16px; }
+  .year-card .y { font-size:18px; font-weight:700; }
+  .year-card .st { margin-top:4px; }
+  .stepper { display:flex; align-items:center; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+  .step { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--text-2); cursor:pointer; }
+  .step .num { width:24px; height:24px; border-radius:50%; background:var(--surface-2); border:1px solid var(--border-strong); display:inline-flex; align-items:center; justify-content:center; font-size:12px; }
+  .step.active .num { background:var(--primary); color:#fff; border-color:var(--primary); }
+  .step.active { color:var(--text); }
+  .step.done .num { background:var(--success); color:#fff; border-color:var(--success); }
+  .step .sep { width:24px; height:1px; background:var(--border-strong); }
+  .kv { display:flex; justify-content:space-between; gap:10px; font-size:13px; padding:5px 0; border-bottom:1px dashed var(--border); }
+  .kv:last-child { border-bottom:none; }
+  .check-item { display:flex; gap:8px; align-items:center; font-size:13px; padding:4px 0; }
+  .check-item input { width:16px; height:16px; }
+  .wizard-panel { display:none; }
+  .wizard-panel.active { display:block; }
+  .wizard-nav { display:flex; justify-content:space-between; align-items:center; margin-top:20px; gap:10px; flex-wrap:wrap; }
+  .diff-line { display:flex; gap:8px; font-size:13px; align-items:center; padding:3px 0; }
+  .diff-add { color:var(--success); }
+  .diff-del { color:var(--danger); }
+  .stat-line { display:flex; gap:12px; font-size:13px; flex-wrap:wrap; align-items:center; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="nav-scrim" onclick="document.body.classList.remove('nav-open')"></div>
+  <aside class="sidebar">
+    <div class="side-logo"><div class="crest">S</div><div><div class="name">Prévisions Matières</div><div class="sub">Complexe Scolaire SILOE</div></div></div>
+    <nav class="side-nav">
+      <div class="nav-section">Supervision</div>
+      <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg> Toutes les fiches</a>
+      <div class="nav-section">Administration</div>
+      <a class="nav-item" href="06-gestion-utilisateurs.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Utilisateurs</a>
+      <a class="nav-item" href="07-structure.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Structure scolaire</a>
+      <a class="nav-item" href="08-matieres-sous-branches.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> Branches & sous-branches</a>
+      <a class="nav-item" href="09-affectations.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Attributions</a>
+      <div class="nav-section">Calendrier</div>
+      <a class="nav-item" href="10-calendrier.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Calendrier & modèles</a>
+      <div class="nav-section">Année</div>
+      <a class="nav-item active" href="13-rollover.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> Nouvelle année</a>
+      <div class="nav-section">Notifications</div>
+      <a class="nav-item" href="12-notifications.html"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg> Notifications <span class="nav-badge">2</span></a>
+    </nav>
+    <div class="side-foot"><div class="user-box"><div class="avatar">DN</div><div><div class="u-name">Direction</div><div class="u-role">Super admin</div></div></div></div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" onclick="document.body.classList.add('nav-open')" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+      <div class="page-title">Nouvelle année scolaire</div>
+      <div class="spacer"></div>
+      <span class="year-chip">Année 2026 – 2027</span>
+      <span class="sync-pill sync-online"><span class="dot"></span> En ligne</span>
+    </header>
+
+    <div class="content" style="max-width:1120px;">
+      <div class="page-head">
+        <div><h1>Nouvelle année scolaire</h1><div class="desc">Préparez 2027 – 2028 en clonant la structure de l'année en cours</div></div>
+      </div>
+
+      <!-- Stepper -->
+      <div class="stepper" id="stepper">
+        <span class="step active" data-step="1" onclick="go(1)"><span class="num">1</span> Paramètres</span><span class="step-sep"></span>
+        <span class="step" data-step="2" onclick="go(2)"><span class="num">2</span> Structure</span><span class="step-sep"></span>
+        <span class="step" data-step="3" onclick="go(3)"><span class="num">3</span> Révision sections</span><span class="step-sep"></span>
+        <span class="step" data-step="4" onclick="go(4)"><span class="num">4</span> Calendriers</span><span class="step-sep"></span>
+        <span class="step" data-step="5" onclick="go(5)"><span class="num">5</span> Activation</span>
+      </div>
+
+      <!-- STEP 1 : Paramètres -->
+      <div class="card card-pad wizard-panel active" id="panel-1">
+        <strong style="font-size:15px;">Paramètres de la nouvelle année</strong>
+        <div class="mt12 field"><label>Libellé</label><input class="input" value="2027 – 2028"></div>
+        <div class="row mt12">
+          <div class="field grow"><label>Début (rentrée)</label><input class="input" type="date" value="2027-09-01"></div>
+          <div class="field grow"><label>Fin</label><input class="input" type="date" value="2028-07-07"></div>
+        </div>
+        <div class="divider"></div>
+        <div class="check-item"><input type="checkbox" checked> <span><strong>Cloner la structure 2026 – 2027</strong> (classes, branches, attributions, enseignants)</span></div>
+        <div class="check-item"><input type="checkbox"> <span>Copier aussi les calendriers/modèles (à revoir par le super admin)</span></div>
+        <div class="hint mt8">Les fiches de l'année précédente ne sont pas copiées : les enseignants rempliront de nouvelles fiches dans la nouvelle année.</div>
+      </div>
+
+      <!-- STEP 2 : Structure & attributions -->
+      <div class="card card-pad wizard-panel" id="panel-2">
+        <strong style="font-size:15px;">Structure & attributions clonées</strong>
+        <div class="stat-line mt8">
+          <span class="chip chip-soumis"><span class="dot"></span>Primaire</span><span>6 classes · 58 cours · 58 attributions</span>
+          <span class="chip chip-archive" style="margin-left:8px;"><span class="dot"></span>Secondaire</span><span>12 classes · 110 cours · 110 attributions</span>
+        </div>
+        <div class="table-wrap mt12">
+          <table class="data" style="font-size:13px;">
+            <thead><tr><th>Section</th><th>Classe</th><th>Cours</th><th>Sous-branche</th><th>Enseignant 2026 – 2027</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody>
+              <tr><td><span class="chip chip-archive"><span class="dot"></span>Sec</span></td><td><strong>6<sup>e</sup> B</strong></td><td>Mathématiques</td><td class="muted">—</td><td>M. Kazadi</td><td style="text-align:right"><button class="btn btn-ghost btn-sm">Changer</button></td></tr>
+              <tr><td><span class="chip chip-archive"><span class="dot"></span>Sec</span></td><td><strong>6<sup>e</sup> B</strong></td><td>Français</td><td class="muted">—</td><td>Mme Mbuyi</td><td style="text-align:right"><button class="btn btn-ghost btn-sm">Changer</button></td></tr>
+              <tr><td><span class="chip chip-soumis"><span class="dot"></span>Prim</span></td><td><strong>1<sup>re</sup> A</strong></td><td>Français</td><td>Grammaire</td><td>Mme Mbuyi</td><td style="text-align:right"><button class="btn btn-ghost btn-sm">Changer</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="hint mt8">Liste tronquée (extrait). Toutes les attributions de 2026 – 2027 sont reprises ; vous pouvez ajuster classe/cours/enseignant avant activation.</p>
+      </div>
+
+      <!-- STEP 3 : Révision par section -->
+      <div class="card card-pad wizard-panel" id="panel-3">
+        <strong style="font-size:15px;">Révision par les administrateurs de section</strong>
+        <div class="banner banner-info mt8"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span>Les admins Primaire et Secondaire doivent valider (ou ajuster) leur section avant l'activation de la nouvelle année.</span></div>
+        <div class="row mt12" style="gap:14px;align-items:stretch;">
+          <div class="card card-pad grow" style="flex:1;">
+            <div style="display:flex;align-items:center;gap:8px;"><span class="chip chip-soumis"><span class="dot"></span>Primaire</span><strong>I. Ilunga</strong></div>
+            <div class="kv mt8"><b>État</b><span class="chip chip-soumis"><span class="dot"></span>Validée</span></div>
+            <div class="kv"><b>Classes / cours</b><span>6 / 58</span></div>
+            <div class="kv"><b>Modifs</b><span>Aucune</span></div>
+            <div class="hint mt8">Validée le 02/09 à 16:10</div>
+          </div>
+          <div class="card card-pad grow" style="flex:1;">
+            <div style="display:flex;align-items:center;gap:8px;"><span class="chip chip-archive"><span class="dot"></span>Secondaire</span><strong>D. Mukendi</strong></div>
+            <div class="kv mt8"><b>État</b><span class="chip chip-attente"><span class="dot"></span>En attente</span></div>
+            <div class="kv"><b>Classes / cours</b><span>12 / 110</span></div>
+            <div class="kv"><b>Modifs</b><span>2 classes modifiées</span></div>
+            <div class="hint mt8">En cours de révision…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 4 : Calendriers -->
+      <div class="card card-pad wizard-panel" id="panel-4">
+        <strong style="font-size:15px;">Calendriers & modèles 2027 – 2028</strong>
+        <div class="row mt12" style="gap:14px;align-items:stretch;">
+          <div class="card card-pad grow" style="flex:1;">
+            <span class="chip chip-soumis"><span class="dot"></span>Primaire</span>
+            <div class="kv mt8"><b>Modèle cloné</b><span>v3 (2026 – 2027)</span></div>
+            <div class="kv"><b>Date de rentrée</b><span>01/09/2027</span></div>
+            <div class="kv"><b>Semaines estimées</b><span>43</span></div>
+            <button class="btn btn-ghost btn-sm mt12">Générer / ajuster le calendrier</button>
+          </div>
+          <div class="card card-pad grow" style="flex:1;">
+            <span class="chip chip-archive"><span class="dot"></span>Secondaire</span>
+            <div class="kv mt8"><b>Modèle cloné</b><span>v3 (2026 – 2027)</span></div>
+            <div class="kv"><b>Date de rentrée</b><span>01/09/2027</span></div>
+            <div class="kv"><b>Semaines estimées</b><span>36</span></div>
+            <button class="btn btn-ghost btn-sm mt12">Générer / ajuster le calendrier</button>
+          </div>
+        </div>
+        <p class="hint mt8">Ouvre l'écran « Calendrier & modèles » (grille mensuelle) pré-rempli pour la nouvelle année.</p>
+      </div>
+
+      <!-- STEP 5 : Activation -->
+      <div class="card card-pad wizard-panel" id="panel-5">
+        <strong style="font-size:15px;">Activation de 2027 – 2028</strong>
+        <div class="stat-line mt12">
+          <span class="chip chip-soumis"><span class="dot"></span>Primaire</span><span>Validée</span>
+          <span class="chip chip-archive" style="margin-left:8px;"><span class="dot"></span>Secondaire</span><span><strong style="color:var(--warn)">En attente</strong></span>
+        </div>
+        <div class="banner banner-warn mt8"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg><span>L'activation ne peut pas être finale tant que la section Secondaire n'a pas validé sa structure.</span></div>
+        <div class="check-item mt8"><input type="checkbox" checked> <span>Marquer 2026 – 2027 comme <strong>archivée</strong> (lecture seule) une fois 2027 – 2028 active</span></div>
+        <div class="check-item"><input type="checkbox"> <span>Notifier tous les enseignants de l'ouverture de la nouvelle année</span></div>
+        <div class="divider"></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button class="btn btn-ghost">Enregistrer comme brouillon</button>
+          <button class="btn btn-primary" disabled title="En attente de validation de la section Secondaire">Activer 2027 – 2028</button>
+        </div>
+      </div>
+
+      <div class="wizard-nav">
+        <button class="btn btn-ghost" id="btn-prev" onclick="step(-1)">← Précédent</button>
+        <span class="demo" id="step-label">Étape 1 / 5</span>
+        <button class="btn btn-primary" id="btn-next" onclick="step(1)">Suivant →</button>
+      </div>
+
+      <div style="margin-top:20px;">
+        <div class="year-card">
+          <div class="y">2026 – 2027</div>
+          <div class="st"><span class="chip chip-soumis"><span class="dot"></span>Active</span> <span class="demo">Fiches en cours</span></div>
+          <div class="kv mt12"><b>Fiches soumises</b><span>92 / 168</span></div>
+          <div class="kv"><b>Calendriers</b><span>v3 (P) · v3 (S)</span></div>
+        </div>
+        <div class="year-card" style="margin-top:12px;">
+          <div class="y">2025 – 2026</div>
+          <div class="st"><span class="chip chip-archive"><span class="dot"></span>Archivée</span></div>
+          <div class="kv mt12"><b>Fiches</b><span>168 / 168 soumises</span></div>
+          <div class="demo">Consultation et impression en lecture seule</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="mock-flag">MAQUETTE · NON FONCTIONNELLE</div>
+<script>
+  var cur = 1, max = 5;
+  function render() {
+    for (var i=1;i<=max;i++) document.getElementById('panel-'+i).classList.toggle('active', i===cur);
+    document.querySelectorAll('#stepper .step').forEach(function(el){
+      var s = +el.dataset.step;
+      el.classList.toggle('active', s===cur);
+      el.classList.toggle('done', s<cur);
+    });
+    document.getElementById('btn-prev').style.visibility = cur>1 ? 'visible' : 'hidden';
+    document.getElementById('btn-next').textContent = cur===max ? 'Terminer' : 'Suivant →';
+    document.getElementById('step-label').textContent = 'Étape '+cur+' / '+max;
+  }
+  function step(d){ cur = Math.min(max, Math.max(1, cur+d)); render(); }
+  function go(s){ cur = s; render(); }
+  render();
+</script>
+</body>
+</html>

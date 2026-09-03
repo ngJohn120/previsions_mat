@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tableau de bord · Enseignant — Prévisions Matières (maquette)</title>
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  .demo { font-size: 12px; color: var(--text-3); }
+  /* Modal demo tweaks */
+  .modal { width: 560px; }
+  .radio-card { border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 12px 14px; cursor: pointer; display: block; }
+  .radio-card + .radio-card { margin-top: 10px; }
+  .radio-card.selected { border-color: var(--primary); background: var(--primary-soft); box-shadow: 0 0 0 1px var(--primary); }
+  .radio-card .who { font-size: 12px; font-weight: 700; color: var(--text-2); display: flex; gap: 8px; align-items: center; }
+  .radio-card .who .tag { text-transform: none; letter-spacing: 0; }
+  .radio-card .val { margin-top: 6px; font-size: 13.5px; line-height: 1.4; }
+  .conflict-meta { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-2); margin-bottom: 14px; }
+  .conflict-meta b { font-weight: 700; color: var(--text); }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <!-- Scrim mobile -->
+  <div class="nav-scrim" onclick="document.body.classList.remove('nav-open')"></div>
+
+  <!-- ======= SIDEBAR ======= -->
+  <aside class="sidebar">
+    <div class="side-logo">
+      <div class="crest">S</div>
+      <div>
+        <div class="name">Prévisions Matières</div>
+        <div class="sub">Complexe Scolaire SILOE</div>
+      </div>
+    </div>
+    <nav class="side-nav">
+      <div class="nav-section">Espace enseignant</div>
+      <a class="nav-item active" href="02-dashboard-enseignant.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Mes fiches
+      </a>
+      <a class="nav-item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        Notifications
+        <span class="nav-badge blue">3</span>
+      </a>
+      <div class="nav-section">Aide</div>
+      <a class="nav-item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        Guide d'utilisation
+      </a>
+    </nav>
+    <div class="side-foot">
+      <div class="user-box">
+        <div class="avatar">MK</div>
+        <div style="min-width:0">
+          <div class="u-name">M. Kazadi</div>
+          <div class="u-role">Enseignant · Secondaire</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ======= MAIN ======= -->
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" onclick="document.body.classList.add('nav-open')" aria-label="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+      <div class="page-title">Mes fiches</div>
+      <div class="spacer"></div>
+      <span class="section-chip secondary">Secondaire</span>
+      <span class="year-chip">Année 2026 – 2027</span>
+      <span class="sync-pill sync-online"><span class="dot"></span> En ligne</span>
+    </header>
+
+    <div class="content">
+      <!-- Alertes -->
+      <div class="banner banner-danger">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+        <span><strong>1 conflit</strong> sur « Mathématiques · 6<sup>e</sup> B » — deux appareils ont modifié la même case. À résoudre avant soumission.</span>
+        <span class="spacer"></span>
+        <button class="btn btn-danger-ghost btn-sm" onclick="openModal('conflit')">Résoudre</button>
+      </div>
+      <div class="banner banner-warn">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+        <span><strong>Demande de déverrouillage en attente</strong> — votre fiche « Français · 3<sup>e</sup> » est soumise ; un administrateur doit approuver la réouverture avant modification.</span>
+      </div>
+
+      <div class="page-head">
+        <div>
+          <h1>Bonjour, M. Kazadi 👋</h1>
+          <div class="desc">Année scolaire 2026 – 2027 · Secondaire</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-ghost btn-sm" title="Exporte la liste actuellement filtrée (classe, matière, sous-branche, état, progression, dernière modification) au format CSV">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+            Exporter la liste (CSV)
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stat-grid">
+        <div class="card card-pad stat">
+          <span class="label">Mes fiches</span>
+          <span class="value">5 <small>au total</small></span>
+          <span class="foot">Secondaire · 3 classes</span>
+        </div>
+        <div class="card card-pad stat">
+          <span class="label">Brouillons</span>
+          <span class="value">2</span>
+          <span class="foot">En cours de remplissage</span>
+        </div>
+        <div class="card card-pad stat">
+          <span class="label">Soumises</span>
+          <span class="value">2</span>
+          <span class="foot">En attente de validation admin</span>
+        </div>
+        <div class="card card-pad stat">
+          <span class="label">À compléter</span>
+          <span class="value">1 <small class="muted">/ 5</small></span>
+          <span class="foot"><span class="progress" style="width:120px"><span style="width:78%"></span></span> <span class="demo"> 78 % global</span></span>
+        </div>
+      </div>
+
+      <!-- Liste des fiches -->
+      <div class="card">
+        <div class="card-pad" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--border);margin:0;padding-bottom:12px;">
+          <strong style="font-size:14px;">Mes prévisions annuelles</strong>
+          <span class="spacer" style="flex:1"></span>
+          <select class="select" style="width:auto;padding:6px 10px;">
+            <option>Toutes les classes</option>
+            <option>6<sup>e</sup> B</option>
+            <option>3<sup>e</sup></option>
+            <option>2<sup>nde</sup></option>
+          </select>
+          <select class="select" style="width:auto;padding:6px 10px;">
+            <option>Tous les états</option>
+            <option>Brouillon</option>
+            <option>Soumise</option>
+            <option>Conflit</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Classe</th><th>Matière</th><th>Sous-branche</th><th>État</th><th>Progression</th><th>Dernière modif.</th><th style="text-align:right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="row-click" onclick="location.href='04-editeur-secondaire.html'">
+                <td><strong>6<sup>e</sup> B</strong></td>
+                <td>Mathématiques</td><td class="muted">—</td>
+                <td><span class="chip chip-brouillon"><span class="dot"></span>Brouillon</span></td>
+                <td><div style="display:flex;align-items:center;gap:8px;"><div class="progress" style="width:90px"><span style="width:62%"></span></div><span class="demo">62 %</span></div></td>
+                <td class="muted">Aujourd'hui, 14:02</td>
+                <td style="text-align:right"><a class="btn btn-primary btn-sm" href="04-editeur-secondaire.html">Ouvrir</a></td>
+              </tr>
+              <tr class="row-click" onclick="location.href='03-editeur-primaire.html'">
+                <td><strong>6<sup>e</sup> B</strong></td>
+                <td>Français</td><td class="muted">—</td>
+                <td><span class="chip chip-brouillon"><span class="dot"></span>Brouillon</span></td>
+                <td><div style="display:flex;align-items:center;gap:8px;"><div class="progress" style="width:90px"><span style="width:100%"></span></div><span class="demo">100 %</span></div></td>
+                <td class="muted">Hier, 17:41</td>
+                <td style="text-align:right"><a class="btn btn-primary btn-sm" href="03-editeur-primaire.html">Ouvrir</a></td>
+              </tr>
+              <tr class="row-click" onclick="location.href='#'">
+                <td><strong>3<sup>e</sup></strong></td>
+                <td>Français</td><td class="muted">—</td>
+                <td><span class="chip chip-soumis"><span class="dot"></span>Soumise</span></td>
+                <td><div style="display:flex;align-items:center;gap:8px;"><div class="progress" style="width:90px"><span style="width:100%"></span></div><span class="demo">100 %</span></div></td>
+                <td class="muted">Lun. 31 août</td>
+                <td style="text-align:right">
+                  <a class="btn btn-ghost btn-sm" href="#" title="Voir en lecture seule">Consulter</a>
+                  <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); openModal('demande')">Demander modification</button>
+                </td>
+              </tr>
+              <tr class="row-click" onclick="location.href='#'">
+                <td><strong>2<sup>nde</sup></strong></td>
+                <td>Physique</td><td class="muted">—</td>
+                <td><span class="chip chip-soumis"><span class="dot"></span>Soumise</span></td>
+                <td><div style="display:flex;align-items:center;gap:8px;"><div class="progress" style="width:90px"><span style="width:100%"></span></div><span class="demo">100 %</span></div></td>
+                <td class="muted">Ven. 28 août</td>
+                <td style="text-align:right">
+                  <a class="btn btn-ghost btn-sm" href="#">Consulter</a>
+                  <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); openModal('demande')">Demander modification</button>
+                </td>
+              </tr>
+              <tr class="row-click" onclick="location.href='#'">
+                <td><strong>2<sup>nde</sup></strong></td>
+                <td>Mathématiques</td><td class="muted">—</td>
+                <td><span class="chip chip-attente"><span class="dot"></span>Demande de réouverture</span></td>
+                <td><div style="display:flex;align-items:center;gap:8px;"><div class="progress" style="width:90px"><span style="width:100%"></span></div><span class="demo">100 %</span></div></td>
+                <td class="muted">Jeu. 27 août</td>
+                <td style="text-align:right"><a class="btn btn-ghost btn-sm" href="#">Suivre la demande</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Aperçu annuaire / calendrier -->
+      <div class="row mt16" style="gap:14px;align-items:stretch;">
+        <div class="card card-pad grow" style="flex:1.6;">
+          <div style="display:flex;align-items:center;margin-bottom:10px;"><strong style="font-size:14px;">Échéances à venir</strong><span class="spacer" style="flex:1"></span><span class="hint">Année 2026 – 2027</span></div>
+          <div class="small" style="display:flex;flex-direction:column;gap:7px;">
+            <div style="display:flex;gap:10px;align-items:center;"><span class="tag" style="min-width:92px;text-align:center">30 sept.</span><span>Soumission finale <strong>1<sup>re</sup> période</strong> · toutes matières</span></div>
+            <div style="display:flex;gap:10px;align-items:center;"><span class="tag" style="min-width:92px;text-align:center">04 nov.</span><span>Évaluation 1 · détente</span></div>
+            <div style="display:flex;gap:10px;align-items:center;"><span class="tag" style="min-width:92px;text-align:center">30 janv.</span><span>Examen 1<sup>er</sup> semestre · secondaire</span></div>
+          </div>
+        </div>
+        <div class="card card-pad grow" style="flex:1;">
+          <div style="display:flex;align-items:center;margin-bottom:10px;"><strong style="font-size:14px;">Activité récente</strong></div>
+          <div class="small" style="display:flex;flex-direction:column;gap:8px;color:var(--text-2);">
+            <div>Aujourd'hui 14:02 — <strong>vous</strong> avez modifié la semaine 24 (Math · 6<sup>e</sup> B)</div>
+            <div>Aujourd'hui 09:12 — <strong>vous</strong> avez soumis « Physique · 2<sup>nde</sup> »</div>
+            <div>Hier 17:41 — <strong>vous</strong> avez rempli la semaine 16 (Français · 6<sup>e</sup> B)</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ======= MODALE : Demande de réouverture ======= -->
+<div class="modal-backdrop" id="modal-demande">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="md-title">
+    <div class="modal-head">
+      <h3 id="md-title">Demander une modification</h3>
+    </div>
+    <div class="modal-body">
+      <div class="banner banner-warn" style="margin-bottom:14px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+        <span>Votre fiche est <strong>soumise</strong> : toute modification nécessite l'approbation du <strong>Préfet / D.E.</strong></span>
+      </div>
+      <div style="font-size:13px; color:var(--text-2); margin-bottom:14px; display:flex; gap:18px; flex-wrap:wrap;">
+        <span><b style="color:var(--text)">Fiche :</b> Français · 3<sup>e</sup></span>
+        <span><b style="color:var(--text)">État actuel :</b> <span class="chip chip-soumis" style="vertical-align:middle"><span class="dot"></span>Soumise</span></span>
+      </div>
+      <div class="field">
+        <label for="motif">Motif de la demande <span class="muted">(obligatoire)</span></label>
+        <textarea class="textarea" id="motif" rows="3" placeholder="Décrivez brièvement ce que vous devez corriger…"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('demande')">Annuler</button>
+      <button class="btn btn-primary" onclick="closeModal('demande')">Envoyer la demande</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======= MODALE : Résolution de conflit ======= -->
+<div class="modal-backdrop" id="modal-conflit">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mc-title">
+    <div class="modal-head">
+      <h3 id="mc-title">Conflit à résoudre</h3>
+    </div>
+    <div class="modal-body">
+      <div class="banner banner-danger" style="margin-bottom:14px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+        <span>Deux appareils ont modifié la même case pendant que vous étiez hors ligne. Choisissez la version à conserver.</span>
+      </div>
+      <div class="conflict-meta">
+        <span><b>Fiche :</b> Mathématiques · 6<sup>e</sup> B</span>
+        <span><b>Semaine :</b> 24</span>
+        <span><b>Case :</b> Matières à enseigner</span>
+      </div>
+      <label class="radio-card selected" style="display:block">
+        <span class="who"><input type="radio" name="conflit" checked> Version A <span class="tag">Android · hier 18:02</span></span>
+        <span class="val">Équations — exercices d'application (pages 40–44)</span>
+      </label>
+      <label class="radio-card" style="display:block">
+        <span class="who"><input type="radio" name="conflit"> Version B <span class="tag">PC · hier 19:40</span></span>
+        <span class="val">Équations — résolution graphique (pages 45–47)</span>
+      </label>
+      <div class="hint mt12">La version non retenue reste consultable dans l'historique de la fiche (journal d'activité).</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('conflit')">Annuler</button>
+      <button class="btn btn-primary" onclick="closeModal('conflit')">Confirmer le choix</button>
+    </div>
+  </div>
+</div>
+
+<div class="mock-flag">MAQUETTE · NON FONCTIONNELLE</div>
+
+<script>
+  // Démo : ouverture des modales (clics + ?modal=demande / ?modal=conflit en aperçu)
+  function openModal(name) { document.getElementById('modal-' + name).classList.add('open'); }
+  function closeModal(name) { document.getElementById('modal-' + name).classList.remove('open'); }
+  document.querySelectorAll('.modal-backdrop').forEach(function (b) {
+    b.addEventListener('click', function (e) { if (e.target === b) b.classList.remove('open'); });
+  });
+  (function () {
+    var q = new URLSearchParams(location.search).get('modal');
+    if (q === 'demande' || q === 'conflit') openModal(q);
+  })();
+</script>
+</body>
+</html>
