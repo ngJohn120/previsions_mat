@@ -313,3 +313,151 @@ export async function listFicheItems(yearId: string): Promise<FicheListItemData[
 
   return rows.sort((x, y) => (x.classe + x.cours).localeCompare(y.classe + y.cours));
 }
+
+export type UnlockRequestWithContext = {
+  id: string;
+  motif: string;
+  created_at: string;
+  fiche: {
+    id: string;
+    statut: FicheStatut;
+    submitted_at: string | null;
+    attribution: {
+      classe: { name: string; section: Section } | null;
+      branche: { name: string } | null;
+      enseignant: { full_name: string } | null;
+    } | null;
+  } | null;
+};
+
+/** Pending unlock requests in the given year/sections, with context. */
+export async function pendingUnlockRequestsForYear(
+  yearId: string,
+  sections: Section[]
+): Promise<UnlockRequestWithContext[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("unlock_requests")
+    .select(
+      "id, motif, created_at, fiche:fiches(id, statut, submitted_at, school_year_id, attribution:attributions(classe:classes(name, section), branche:branches(name), enseignant:profiles(full_name)))"
+    )
+    .eq("statut", "en_attente")
+    .eq("fiche.school_year_id", yearId)
+    .order("created_at")
+    .returns<UnlockRequestWithContext[]>();
+  const list = data ?? [];
+  if (sections.length === 1) {
+    return list.filter(
+      (r) => r.fiche?.attribution?.classe?.section === sections[0]
+    );
+  }
+  return list;
+}
+
+export type SuiviFicheRow = {
+  ficheId: string;
+  classe: string;
+  section: Section;
+  cours: string;
+  sousBranche: string | null;
+  enseignant: string;
+  statut: FicheStatut;
+  conflit: boolean;
+  progression: number;
+  submittedAt: string | null;
+  updatedAt: string | null;
+  hasPendingUnlock: boolean;
+};
+
+type SuiviPayload = {
+  id: string;
+  classe: { name: string; section: Section } | null;
+  branche: { name: string } | null;
+  sous_branche: { name: string } | null;
+  enseignant: { full_name: string } | null;
+  fiche: {
+    id: string;
+    statut: FicheStatut;
+    conflit: boolean;
+    submitted_at: string | null;
+    updated_at: string;
+  } | null;
+};
+
+/**
+ * Aggregate fiches for an admin's section (or all sections for super admin)
+ * with unlock-request + conflict status — used by the admin suivi page.
+ */
+export async function listSuiviFiches(
+  yearId: string,
+  sections: Section[]
+): Promise<SuiviFicheRow[]> {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("attributions")
+    .select(
+      "id, classe:classes(name, section), branche:branches(name), sous_branche:sous_branches(name), enseignant:profiles(full_name), fiche:fiches(id, statut, conflit, submitted_at, updated_at)"
+    )
+    .eq("school_year_id", yearId);
+
+  if (sections.length === 1) {
+    query = query.eq("classe.section", sections[0]);
+  }
+  const { data: attribs } = await query.returns<SuiviPayload[]>();
+
+  const items = (attribs ?? []).filter(
+    (a): a is typeof a & { fiche: NonNullable<typeof a.fiche> } => !!a.fiche
+  );
+
+  const ficheIds = items.map((a) => a.fiche!.id);
+  let pendingSet = new Set<string>();
+  if (ficheIds.length) {
+    const { data: pending } = await supabase
+      .from("unlock_requests")
+      .select("fiche_id")
+      .in("fiche_id", ficheIds)
+      .eq("statut", "en_attente")
+      .returns<{ fiche_id: string }[]>();
+    pendingSet = new Set((pending ?? []).map((p) => p.fiche_id));
+  }
+
+  const rows: SuiviFicheRow[] = items.map((a) => {
+    const f = a.fiche!;
+    return {
+      ficheId: f.id,
+      classe: a.classe?.name ?? "—",
+      section: a.classe?.section ?? "primaire",
+      cours: a.branche?.name ?? "—",
+      sousBranche: a.sous_branche?.name ?? null,
+      enseignant: a.enseignant?.full_name ?? "—",
+      statut: f.statut,
+      conflit: f.conflit ?? false,
+      progression: 0,
+      submittedAt: f.submitted_at,
+      updatedAt: f.updated_at,
+      hasPendingUnlock: pendingSet.has(f.id),
+    };
+  });
+
+  // Progressions (one pass per fiche for required-cell counts)
+  for (const item of rows) {
+    const req = requiredColsForSection(item.section);
+    const { data: fr } = await supabase
+      .from("fiche_rows")
+      .select("id")
+      .eq("fiche_id", item.ficheId)
+      .eq("row_type", "enseignement");
+    const teachIds = (fr ?? []).map((r) => r.id);
+    if (!teachIds.length) continue;
+    const { count: filled } = await supabase
+      .from("fiche_cells")
+      .select("id", { count: "exact", head: true })
+      .in("fiche_row_id", teachIds)
+      .in("col_key", req)
+      .neq("value", "");
+    item.progression = Math.round(((filled ?? 0) / (teachIds.length * req.length)) * 100);
+  }
+
+  return rows.sort((x, y) => (x.classe + x.cours).localeCompare(y.classe + y.cours));
+}

@@ -33,7 +33,7 @@ export default async function AppLayout({
   return (
     <div className="min-h-screen bg-slate-100">
       <OfflineGuard />
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
+      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white print:hidden">
         <div className="flex h-14 items-center gap-4 px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2">
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-700 text-white text-sm font-extrabold">
@@ -60,7 +60,7 @@ export default async function AppLayout({
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">{children}</main>
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 print:max-w-none print:p-0">{children}</main>
     </div>
   );
 }

@@ -34,9 +34,10 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(req.url);
 
-  // Never cache Supabase / auth / external
+  // Never cache Supabase / auth / external / PDF-generation endpoints
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/auth/") || url.pathname.startsWith("/api/auth/")) return;
+  if (url.pathname.includes("/pdf") || /application\/pdf/.test(req.headers.get("accept") ?? "")) return;
 
   // Navigation: network-first with cache fallback (app shell)
   if (req.mode === "navigate") {
