@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createAttribution, updateAttribution, deleteAttribution } from "@/app/(app)/[section]/attributions/actions";
+import { createAttribution, updateAttribution, deleteAttribution, importAttributionsCsv } from "@/app/(app)/[section]/attributions/actions";
+import { CsvImportDialog } from "@/components/ui/csv-import-dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -42,6 +43,7 @@ export function AttributionsManager({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [csvOpen, setCsvOpen] = useState(false);
   const [edit, setEdit] = useState<Attr | null>(null);
   const [classeId, setClasseId] = useState("");
   const [brancheId, setBrancheId] = useState("");
@@ -93,6 +95,7 @@ export function AttributionsManager({
               Voir {section === "primaire" ? "Secondaire" : "Primaire"}
             </Button>
             <Button onClick={openCreate}><span className="mr-1">+</span> Nouvelle attribution</Button>
+            <Button variant="outline" onClick={() => setCsvOpen(true)}>Importer (CSV)</Button>
           </div>
         )}
       </div>
@@ -175,6 +178,18 @@ export function AttributionsManager({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {csvOpen && (
+        <CsvImportDialog
+          entity="attributions"
+          onOpenChange={setCsvOpen}
+          onImported={() => router.refresh()}
+          importAction={async (rows) =>
+            importAttributionsCsv(section as "primaire" | "secondaire", yearId, rows)
+          }
+          templateColumns={["section", "classe", "branche", "sous_branche", "enseignant_email"]}
+        />
+      )}
     </div>
   );
 }

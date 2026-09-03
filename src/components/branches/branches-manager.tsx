@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createBranche, updateBranche, deleteBranche } from "@/app/(app)/admin/branches/actions";
+import { createBranche, updateBranche, deleteBranche, importBranchesCsv } from "@/app/(app)/admin/branches/actions";
+import { CsvImportDialog } from "@/components/ui/csv-import-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +28,7 @@ export function BranchesManager({ branches, canManage }: { branches: Branche[]; 
   const [sectionFilter, setSectionFilter] = useState("all");
   const [sbFilter, setSbFilter] = useState("all");
   const [open, setOpen] = useState(false);
+  const [csvOpen, setCsvOpen] = useState(false);
   const [edit, setEdit] = useState<Branche | null>(null);
   const [name, setName] = useState("");
   const [usePrim, setUsePrim] = useState(true);
@@ -86,7 +88,12 @@ export function BranchesManager({ branches, canManage }: { branches: Branche[]; 
           <h1 className="text-2xl font-bold text-slate-900">Catalogue des branches</h1>
           <p className="text-sm text-slate-500">Branches et sous-branches utilisables en primaire et/ou secondaire</p>
         </div>
-        {canManage && <Button onClick={openCreate}><span className="mr-1">+</span> Nouvelle branche</Button>}
+        {canManage && (
+          <div className="flex gap-2">
+            <Button onClick={openCreate}><span className="mr-1">+</span> Nouvelle branche</Button>
+            <Button variant="outline" onClick={() => setCsvOpen(true)}>Importer (CSV)</Button>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -184,6 +191,16 @@ export function BranchesManager({ branches, canManage }: { branches: Branche[]; 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {csvOpen && (
+        <CsvImportDialog
+          entity="branches"
+          onOpenChange={setCsvOpen}
+          onImported={() => router.refresh()}
+          importAction={async (rows) => importBranchesCsv(rows)}
+          templateColumns={["name", "sections", "sous_branches"]}
+        />
+      )}
     </div>
   );
 }

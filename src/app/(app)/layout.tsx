@@ -1,8 +1,10 @@
 import { cookies } from "next/headers";
-import { getSessionUser, isSuperAdmin } from "@/lib/auth";
+import { getSessionUser, isSuperAdmin, isSectionAdmin } from "@/lib/auth";
 import { getActiveSchoolYear, listSchoolYears } from "@/lib/school-year";
 import { SchoolYearSwitcher } from "@/components/school-year-switcher";
 import { OfflineGuard } from "@/components/sync/offline-guard";
+import { NotificationBell } from "@/components/notifications/notification-bell";
+import { MainNav } from "@/components/main-nav";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
@@ -43,6 +45,13 @@ export default async function AppLayout({
               Prévisions Matières
             </span>
           </Link>
+          <MainNav
+            isAdmin={superAdmin || isSectionAdmin(user.roles, "primaire") || isSectionAdmin(user.roles, "secondaire")}
+            sections={[
+              ...(isSectionAdmin(user.roles, "primaire") ? ["primaire" as const] : []),
+              ...(isSectionAdmin(user.roles, "secondaire") ? ["secondaire" as const] : []),
+            ]}
+          />
           <div className="flex-1" />
           {currentYear && (
             <SchoolYearSwitcher years={years} currentYearId={currentYear.id} />
@@ -53,6 +62,7 @@ export default async function AppLayout({
             </span>
           )}
           <div className="flex items-center gap-2">
+            <NotificationBell />
             <span className="hidden h-7 w-7 items-center justify-center rounded-full bg-blue-700 text-xs font-bold text-white sm:flex">
               {user.fullName ? user.fullName.charAt(0).toUpperCase() : user.email?.charAt(0).toUpperCase() ?? "U"}
             </span>

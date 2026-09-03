@@ -3,10 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser, isSuperAdmin, isSectionAdmin } from "@/lib/auth";
 import { templateVersionFor } from "@/lib/templates";
+import { validateAttributionsCsv, type CsvRow } from "@/lib/csv";
 
 type Result = { error?: string };
+export type ImportResult = { created: number; errors: string[] };
 
 async function requireAttributionAccess(section: "primaire" | "secondaire") {
   const user = await getSessionUser();
@@ -127,3 +130,98 @@ export async function deleteAttribution(id: string, section: "primaire" | "secon
   revalidatePath(`/${section}/attributions`);
   return {};
 }
+
+export async function importAttributionsCsv(
+  section: "primaire" | "secondaire",
+  yearId: string,
+  rows: CsvRow[]
+): Promise<ImportResult> {
+  await requireAttributionAccess(section);
+  const supabase = await createClient();
+  const { data, errors: validation } = validateAttributionsCsv(rows);
+  const errors = validation
+    .filter((v) => (rows[v.line - 2]?.[0] ?? "").toLowerCase() === section)
+    .map((v) => `Ligne ${v.line} : ${v.message}`);
+  const sectionRows = data.filter((d) => d.section === section);
+  let created = 0;
+
+  // Look up classes by (section, name), branches by name, sous_branches by (branche,name), teachers by email
+  const classNames = sectionRows.map((d) => d.classe);
+  const branchNames = sectionRows.map((d) => d.branche);
+  const emails = sectionRows.map((d) => d.enseignant_email);
+
+  const [classesRes, branchesRes, sousRes, usersRes] = await Promise.all([
+    supabase.from("classes").select("id, name").eq("school_year_id", yearId).eq("section", section).in("name", classNames),
+    supabase.from("branches").select("id, name").in("name", branchNames),
+    supabase.from("sous_branches").select("id, name, branche_id"),
+    createAdminClient().auth.admin.listUsers({ page: 1, perPage: 1000 }),
+  ]);
+
+  const classId = new Map((classesRes.data ?? []).map((c) => [c.name, c.id]));
+  const branchId = new Map((branchesRes.data ?? []).map((b) => [b.name, b.id]));
+  const allUsers = usersRes.data?.users ?? [];
+  const teacherId = new Map(allUsers.map((u) => [u.email, u.id]));
+  // Ensure listed teachers exist in profiles too (they should, but be safe)
+  const profileEmails = allUsers.filter((u) => emails.includes(u.email ?? "")).map((u) => u.id);
+  if (profileEmails.length) {
+    const { data: profiles } = await supabase.from("profiles").select("id").in("id", profileEmails);
+    const existing = new Set((profiles ?? []).map((p) => p.id));
+    for (const u of allUsers) {
+      if (emails.includes(u.email ?? "") && !existing.has(u.id)) {
+        await supabase.from("profiles").insert({ id: u.id, full_name: u.user_metadata?.full_name ?? u.email ?? "" });
+      }
+    }
+  }
+  // sous_branche lookup by name only is ambiguous across branches; resolve after branch known
+  const sousByBranch = new Map<string, { id: string; name: string }[]>();
+  for (const s of sousRes.data ?? []) {
+    const arr = sousByBranch.get(s.branche_id) ?? [];
+    arr.push({ id: s.id, name: s.name });
+    sousByBranch.set(s.branche_id, arr);
+  }
+
+  for (const d of sectionRows) {
+    const cid = classId.get(d.classe);
+    const bid = branchId.get(d.branche);
+    const tid = teacherId.get(d.enseignant_email);
+    if (!cid) {
+      errors.push(`Ligne « ${d.classe} » : classe introuvable en ${section} pour cette année.`);
+      continue;
+    }
+    if (!bid) {
+      errors.push(`Ligne « ${d.branche} » : branche introuvable.`);
+      continue;
+    }
+    if (!tid) {
+      errors.push(`Ligne « ${d.enseignant_email} » : enseignant introuvable.`);
+      continue;
+    }
+    let sousId: string | null = null;
+    if (d.sous_branche) {
+      const match = (sousByBranch.get(bid) ?? []).find((s) => s.name === d.sous_branche);
+      if (!match) {
+        errors.push(`Ligne « ${d.sous_branche} » : sous-branche introuvable pour « ${d.branche} ».`);
+        continue;
+      }
+      sousId = match.id;
+    }
+
+    const res = await createAttribution({
+      school_year_id: yearId,
+      section,
+      classe_id: cid,
+      branche_id: bid,
+      sous_branche_id: sousId,
+      enseignant_id: tid,
+    });
+    if (res.error) {
+      errors.push(`${d.classe} / ${d.branche} : ${res.error}`);
+    } else {
+      created++;
+    }
+  }
+
+  revalidatePath(`/${section}/attributions`);
+  return { created, errors };
+}
+

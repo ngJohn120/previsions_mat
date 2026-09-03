@@ -45,6 +45,12 @@ export function useLocalFiche(ficheId: string, initial: FicheWithRows) {
       const cached = (await getCachedFiche<{ rows: FicheRow[] }>(ficheId)) ?? initial;
       const { rows: merged, conflicts } = mergeRows(cached.rows, serverRows);
       for (const c of conflicts) await putConflict(c, ficheId);
+      if (conflicts.length > 0) {
+        // Notify the teacher server-side (idempotent per fiche).
+        import("@/app/(app)/notifications/actions").then((m) =>
+          m.notifyConflictDetected(ficheId).catch(() => {})
+        );
+      }
       setRows(merged);
       await cacheFiche(ficheId, { ...initial, rows: merged });
       setLastSaved(new Date());

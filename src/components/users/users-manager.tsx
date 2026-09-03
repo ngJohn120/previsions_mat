@@ -7,8 +7,10 @@ import {
   updateUser,
   resetPassword,
   toggleActive,
+  importUsersCsv,
   type RoleInput,
 } from "@/app/(app)/admin/utilisateurs/actions";
+import { CsvImportDialog } from "@/components/ui/csv-import-dialog";
 import type { UserItem } from "@/app/(app)/admin/utilisateurs/page";
 import {
   Dialog,
@@ -48,6 +50,7 @@ export function UsersManager({ users }: { users: UserItem[] }) {
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [csvOpen, setCsvOpen] = useState(false);
 
   // Form state
   const [name, setName] = useState("");
@@ -186,6 +189,9 @@ export function UsersManager({ users }: { users: UserItem[] }) {
         </select>
         <Button onClick={openCreate}>
           <span className="mr-1">+</span> Nouvel utilisateur
+        </Button>
+        <Button variant="outline" onClick={() => setCsvOpen(true)}>
+          Importer (CSV)
         </Button>
       </div>
 
@@ -336,6 +342,16 @@ export function UsersManager({ users }: { users: UserItem[] }) {
             </div>
           </div>
         </div>
+      )}
+
+      {csvOpen && (
+        <CsvImportDialog
+          entity="users"
+          onOpenChange={setCsvOpen}
+          onImported={() => router.refresh()}
+          importAction={async (rows) => importUsersCsv(rows)}
+          templateColumns={["email", "nom", "téléphone", "rôle", "section"]}
+        />
       )}
     </div>
   );

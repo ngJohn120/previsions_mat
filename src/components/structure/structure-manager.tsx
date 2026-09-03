@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClass, updateClass, deleteClass } from "@/app/(app)/[section]/structure/actions";
+import { createClass, updateClass, deleteClass, importClassesCsv } from "@/app/(app)/[section]/structure/actions";
+import { CsvImportDialog } from "@/components/ui/csv-import-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,6 +35,7 @@ export function StructureManager({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<ClassItem | null>(null);
+  const [csvOpen, setCsvOpen] = useState(false);
   const [name, setName] = useState("");
   const [level, setLevel] = useState("");
   const [ordre, setOrdre] = useState(0);
@@ -84,6 +86,7 @@ export function StructureManager({
               Voir {section === "primaire" ? "Secondaire" : "Primaire"}
             </Button>
             <Button onClick={openCreate}><span className="mr-1">+</span> Ajouter une classe</Button>
+            <Button variant="outline" onClick={() => setCsvOpen(true)}>Importer (CSV)</Button>
           </div>
         )}
       </div>
@@ -158,6 +161,16 @@ export function StructureManager({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {csvOpen && (
+        <CsvImportDialog
+          entity="classes"
+          onOpenChange={setCsvOpen}
+          onImported={() => router.refresh()}
+          importAction={async (rows) => importClassesCsv(section as "primaire" | "secondaire", yearId, rows)}
+          templateColumns={["name", "level", "ordre", "titulaire_email"]}
+        />
+      )}
     </div>
   );
 }

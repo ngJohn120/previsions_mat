@@ -102,9 +102,12 @@ export function SuiviTable({
             {sectionLabel} · Année {yearLabel} — supervisez soumissions, demandes et conflits
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => router.push("/admin/export")}>
+        <a
+          href={`/admin/export?yearId=${encodeURIComponent(yearId)}`}
+          className="inline-flex h-7 items-center rounded-lg border border-slate-300 bg-white px-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
           Exporter (CSV)
-        </Button>
+        </a>
       </div>
 
       {/* Stats */}
