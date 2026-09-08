@@ -1,11 +1,27 @@
 // Smoke test: login as admin, verify notifications page + admin/export CSV + admin/suivi.
 import puppeteer from "puppeteer-core";
+import { createClient } from "@supabase/supabase-js";
 import { loadEnvFile } from "node:process";
 loadEnvFile(".env.local");
-const BASE = "http://localhost:3001";
+const BASE = process.env.BASE_URL ?? "http://localhost:3001";
 const CHROME = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 
+// Auto-discover IDs so the test works on any freshly seeded local DB.
+async function discoverIds() {
+  const c = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
+  const { data: year } = await c.from("school_years").select("id").eq("status", "active").limit(1);
+  const { data: fiche } = await c.from("fiches").select("id").limit(1);
+  return { yearId: year?.[0]?.id, ficheId: fiche?.[0]?.id };
+}
+
 async function main() {
+  const { yearId, ficheId } = await discoverIds();
+  if (!yearId || !ficheId) {
+    console.error("ERR: no active year or fiche in local DB — run `node scripts/seed-demo.mjs` first");
+    process.exit(1);
+  }
   const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ["--no-sandbox"] });
   const ctx = await browser.createBrowserContext();
   const page = await ctx.newPage();
@@ -32,16 +48,17 @@ async function main() {
   // Export CSV
   const cookies = await page.cookies(`${BASE}/`);
   const cookieStr = cookies.map((c) => `${c.name}=${c.value}`).join("; ");
-  const csvRes = await fetch(`${BASE}/admin/export?yearId=ec5ef256-9bba-42a9-bc46-e56db21ec9aa`, {
+  const csvRes = await fetch(`${BASE}/admin/export?yearId=${yearId}`, {
     headers: { cookie: cookieStr },
   });
   const csvText = await csvRes.text();
   console.log("export:", csvRes.status, "ct:", csvRes.headers.get("content-type"), "| first line:", JSON.stringify(csvText.split("\n")[0]?.slice(0, 80)));
 
-  // Impression (teacher view would differ; super admin can view via can_access_fiche)
-  const impRes = await page.goto(`${BASE}/impression/a36014d8-25fa-45b9-97ad-5ce938bfa469`, { waitUntil: "networkidle0" });
-  const sheetCount = await page.$$eval(".sheet", (els) => els.length);
-  console.log("impression:", impRes.status(), "sheets:", sheetCount);
+  // Impression — new Python-rendered PNG preview (no HTML .sheet grid anymore)
+  const impRes = await page.goto(`${BASE}/impression/${ficheId}`, { waitUntil: "networkidle0" });
+  await new Promise((r) => setTimeout(r, 8000)); // wait for Python rasterization (~5s)
+  const imgCount = await page.$$eval("img[src^='data:image/png']", (els) => els.length);
+  console.log("impression:", impRes.status(), "png pages:", imgCount);
 
   await browser.close();
 }

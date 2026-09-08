@@ -29,7 +29,7 @@ function statutChip(statut: string | null) {
 }
 
 export function AttributionsManager({
-  section, yearId, yearLabel, items, classOptions, branchOptions, sousOptions, teacherOptions, canManage,
+  section, yearId, yearLabel, items, classOptions, branchOptions, sousOptions, teacherOptions, canManage, superAdmin,
 }: {
   section: string;
   yearId: string;
@@ -40,6 +40,7 @@ export function AttributionsManager({
   sousOptions: Option[]; // {id,name,branche_id}
   teacherOptions: TeacherOption[];
   canManage: boolean;
+  superAdmin: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -91,9 +92,11 @@ export function AttributionsManager({
         </div>
         {canManage && (
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => router.push(`/${section === "primaire" ? "secondaire" : "primaire"}/attributions`)}>
-              Voir {section === "primaire" ? "Secondaire" : "Primaire"}
-            </Button>
+            {superAdmin && (
+              <Button variant="outline" onClick={() => router.push(`/${section === "primaire" ? "secondaire" : "primaire"}/attributions`)}>
+                Voir {section === "primaire" ? "Secondaire" : "Primaire"}
+              </Button>
+            )}
             <Button onClick={openCreate}><span className="mr-1">+</span> Nouvelle attribution</Button>
             <Button variant="outline" onClick={() => setCsvOpen(true)}>Importer (CSV)</Button>
           </div>

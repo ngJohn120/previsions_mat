@@ -2,7 +2,7 @@
 import puppeteer from "puppeteer-core";
 import { loadEnvFile } from "node:process";
 loadEnvFile(".env.local");
-const BASE = "http://localhost:3001";
+const BASE = process.env.BASE_URL ?? "http://localhost:3001";
 const CHROME = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 
 async function main() {

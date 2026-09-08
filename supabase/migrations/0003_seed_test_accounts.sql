@@ -31,7 +31,7 @@ begin
   -- Create auth user (idempotent: if exists, return existing)
   select id into v_user_id from auth.users where email = p_email;
   if v_user_id is null then
-    insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token)
+    insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new)
     values (
       '00000000-0000-0000-0000-000000000000',
       gen_random_uuid(),
@@ -44,6 +44,8 @@ begin
       jsonb_build_object('full_name', p_full_name),
       now(),
       now(),
+      '',
+      '',
       '',
       ''
     )

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Cell } from "@/components/editor/cell";
 import { cn } from "@/lib/utils";
 import type { FicheRow } from "@/lib/fiche-types";
@@ -40,13 +40,15 @@ export function PrimaryGrid({
     }
     return init;
   });
+  // Keep a ref mirror so handleCellChange can read the latest values without
+  // calling setState inside another setState updater (which React forbids).
+  const valuesRef = useRef(values);
 
   function handleCellChange(cellId: string, value: string) {
-    setValues((prev) => {
-      const next = { ...prev, [cellId]: value };
-      onCellsChange?.(next);
-      return next;
-    });
+    const next = { ...valuesRef.current, [cellId]: value };
+    valuesRef.current = next;
+    setValues(next);
+    onCellsChange?.(next);
   }
 
   // Compute display rows: teaching rows carry a monthHeader + rowspan when a

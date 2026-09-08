@@ -37,6 +37,10 @@ export type Conflict = {
   cellKey: string;
   localValue: string;
   serverValue: string;
+  /** Server version at conflict time (when known) — used to resolve cleanly. */
+  serverVersion?: number | null;
+  /** Epoch ms when the conflict was first detected (for tracking/audit). */
+  createdAt?: number;
 };
 
 export type SyncStatus = "online" | "offline" | "syncing" | "conflit";

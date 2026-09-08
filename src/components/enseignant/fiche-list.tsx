@@ -225,7 +225,9 @@ export function FicheList({
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-10 text-center text-slate-400">
-                    Aucune fiche pour ces filtres.
+                    {initialFiches.length === 0
+                      ? "Aucune fiche à afficher car vous n'avez aucun cours"
+                      : "Aucune fiche pour ces filtres."}
                   </td>
                 </tr>
               )}

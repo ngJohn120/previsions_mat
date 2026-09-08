@@ -7,7 +7,7 @@
  *  - /_next/static: cache-first (immutable hashed assets).
  *  - Supabase API / auth endpoints: never cache (pass-through).
  */
-const CACHE = "pm-shell-v1";
+const CACHE = "pm-shell-v2";
 const PRECACHE = ["/", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {

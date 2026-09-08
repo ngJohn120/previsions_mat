@@ -15,7 +15,8 @@ export default async function AttributionsPage({
 
   const user = await getSessionUser();
   if (!user) redirect("/login");
-  const canManage = isSuperAdmin(user.roles) || isSectionAdmin(user.roles, section);
+  const superAdmin = isSuperAdmin(user.roles);
+  const canManage = superAdmin || isSectionAdmin(user.roles, section);
   if (!canManage) redirect("/");
 
   const supabase = await createClient();
@@ -80,6 +81,7 @@ export default async function AttributionsPage({
       sousOptions={sousOptions}
       teacherOptions={teacherOptions}
       canManage={canManage}
+      superAdmin={superAdmin}
     />
   );
 }

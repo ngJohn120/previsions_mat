@@ -16,6 +16,7 @@ export function EditorToolbar({
   onSubmit,
   printHref,
   syncLabel,
+  syncStatus,
   extra,
 }: {
   backHref: string;
@@ -28,9 +29,20 @@ export function EditorToolbar({
   onSubmit?: () => void;
   printHref?: string;
   syncLabel?: string;
+  syncStatus?: "online" | "offline" | "syncing" | "conflit";
   extra?: React.ReactNode;
 }) {
   const editable = statut === "brouillon";
+
+  // Dot reflects connectivity/sync state; falls back to the fiche status color.
+  const dotClass =
+    syncStatus === "offline" || syncStatus === "conflit"
+      ? "bg-red-500"
+      : syncStatus === "syncing"
+        ? "bg-amber-500"
+        : statut === "soumise"
+          ? "bg-blue-500"
+          : "bg-green-500";
 
   return (
     <div className="no-print sticky top-0 z-30 border-b border-slate-200 bg-white">
@@ -48,7 +60,7 @@ export function EditorToolbar({
         <div className="flex-1" />
         {syncLabel && (
           <span className="hidden items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 md:inline-flex">
-            <span className={cn("h-1.5 w-1.5 rounded-full", statut === "soumise" ? "bg-blue-500" : "bg-green-500")} />
+            <span className={cn("h-1.5 w-1.5 rounded-full", dotClass)} />
             {syncLabel}
           </span>
         )}

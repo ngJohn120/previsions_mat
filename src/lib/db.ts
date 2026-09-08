@@ -68,7 +68,7 @@ export async function enqueueOp(op: SyncOp): Promise<void> {
   // Unique opId index guards against double enqueue
   const existing = await db.getFromIndex("outbox", "opId", op.opId);
   if (existing) return;
-  await db.add("outbox", { ...op, seq: undefined });
+  await db.add("outbox", { ...op });
 }
 
 /** Read pending ops in insertion order (oldest first). */

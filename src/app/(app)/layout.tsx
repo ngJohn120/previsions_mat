@@ -4,11 +4,23 @@ import { getActiveSchoolYear, listSchoolYears } from "@/lib/school-year";
 import { SchoolYearSwitcher } from "@/components/school-year-switcher";
 import { OfflineGuard } from "@/components/sync/offline-guard";
 import { NotificationBell } from "@/components/notifications/notification-bell";
-import { MainNav } from "@/components/main-nav";
+import { MainNav, MobileNav, type Sections } from "@/components/main-nav";
+import { UserMenu } from "@/components/user-menu";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
 const YEAR_COOKIE = "pm_year";
+
+function roleLabel(user: NonNullable<Awaited<ReturnType<typeof getSessionUser>>>) {
+  const labels: Record<string, string> = {
+    super_admin: "Super admin",
+    admin_primaire: "Admin · Primaire",
+    admin_secondaire: "Admin · Secondaire",
+    enseignant: "Enseignant",
+  };
+  if (user.roles.length === 0) return "";
+  return user.roles.map((r) => labels[r.role] ?? r.role).join(" · ");
+}
 
 export default async function AppLayout({
   children,
@@ -31,12 +43,22 @@ export default async function AppLayout({
     years.find((y) => y.id === cookieYear) ?? activeYear ?? years[0] ?? null;
 
   const superAdmin = isSuperAdmin(user.roles);
+  const adminSections: Sections = [
+    ...(isSectionAdmin(user.roles, "primaire") ? ["primaire" as const] : []),
+    ...(isSectionAdmin(user.roles, "secondaire") ? ["secondaire" as const] : []),
+  ];
+  const isAdmin = superAdmin || adminSections.length > 0;
 
   return (
     <div className="min-h-screen bg-slate-100">
       <OfflineGuard />
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white print:hidden">
-        <div className="flex h-14 items-center gap-4 px-4 sm:px-6">
+        <div className="flex h-14 items-center gap-1 px-3 sm:gap-2 sm:px-6">
+          <MobileNav
+            isAdmin={isAdmin}
+            superAdmin={superAdmin}
+            sections={adminSections}
+          />
           <Link href="/" className="flex items-center gap-2">
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-700 text-white text-sm font-extrabold">
               S
@@ -46,11 +68,9 @@ export default async function AppLayout({
             </span>
           </Link>
           <MainNav
-            isAdmin={superAdmin || isSectionAdmin(user.roles, "primaire") || isSectionAdmin(user.roles, "secondaire")}
-            sections={[
-              ...(isSectionAdmin(user.roles, "primaire") ? ["primaire" as const] : []),
-              ...(isSectionAdmin(user.roles, "secondaire") ? ["secondaire" as const] : []),
-            ]}
+            isAdmin={isAdmin}
+            superAdmin={superAdmin}
+            sections={adminSections}
           />
           <div className="flex-1" />
           {currentYear && (
@@ -63,10 +83,16 @@ export default async function AppLayout({
           )}
           <div className="flex items-center gap-2">
             <NotificationBell />
-            <span className="hidden h-7 w-7 items-center justify-center rounded-full bg-blue-700 text-xs font-bold text-white sm:flex">
-              {user.fullName ? user.fullName.charAt(0).toUpperCase() : user.email?.charAt(0).toUpperCase() ?? "U"}
-            </span>
-            <span className="hidden text-xs text-slate-500 sm:inline">{user.fullName ?? user.email}</span>
+            <UserMenu
+              fullName={user.fullName ?? user.email ?? ""}
+              email={user.email ?? ""}
+              rolesLabel={roleLabel(user)}
+              initial={
+                user.fullName
+                  ? user.fullName.charAt(0).toUpperCase()
+                  : user.email?.charAt(0).toUpperCase() ?? "U"
+              }
+            />
           </div>
         </div>
       </header>

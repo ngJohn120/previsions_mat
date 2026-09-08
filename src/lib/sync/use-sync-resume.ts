@@ -4,7 +4,7 @@
 // and surface status (reprise… / synced) until empty.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { countOutbox } from "@/lib/db";
-import { drainOutbox } from "@/lib/sync/outbox";
+import { drainOutbox, persistConflictFromOp } from "@/lib/sync/outbox";
 import { executeOp } from "@/lib/sync/transport";
 import { registerUnsyncedCheck } from "@/lib/sync/guards";
 import type { SyncOp } from "@/lib/sync/types";
@@ -43,7 +43,20 @@ export function useSyncResume() {
         return;
       }
       setState({ kind: "resuming", remaining: count });
-      const res = await drainOutbox(async (op: SyncOp) => executeOp(op));
+      const res = await drainOutbox(
+        async (op: SyncOp) => executeOp(op),
+        async (op: SyncOp) => {
+          // A queued write hit a version conflict on the server: persist a
+          // Conflict record (and remove the op) so the A/B/C resolver appears
+          // instead of the op staying stuck in the outbox forever.
+          const ficheId = await persistConflictFromOp(op);
+          if (ficheId) {
+            window.dispatchEvent(
+              new CustomEvent("pm:conflicts-changed", { detail: { ficheId } })
+            );
+          }
+        }
+      );
       setPending(res.ok + res.failed + res.conflicts === 0 ? 0 : await countOutbox());
       setState({ kind: "done" });
     } catch {
@@ -55,6 +68,8 @@ export function useSyncResume() {
 
   // Auto-resume on mount
   useEffect(() => {
+    // Intentional one-time mount check; sets pending/offline state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshPending();
     if (typeof navigator !== "undefined" && !navigator.onLine) {
       setState({ kind: "offline" });

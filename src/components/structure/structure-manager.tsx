@@ -23,7 +23,7 @@ type ClassItem = {
 type Teacher = { id: string; full_name: string };
 
 export function StructureManager({
-  section, yearId, yearLabel, classes, teachers, canManage,
+  section, yearId, yearLabel, classes, teachers, canManage, superAdmin,
 }: {
   section: string;
   yearId: string;
@@ -31,6 +31,7 @@ export function StructureManager({
   classes: ClassItem[];
   teachers: Teacher[];
   canManage: boolean;
+  superAdmin: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -82,9 +83,11 @@ export function StructureManager({
         </div>
         {canManage && (
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => router.push(`/${section === "primaire" ? "secondaire" : "primaire"}/structure`)}>
-              Voir {section === "primaire" ? "Secondaire" : "Primaire"}
-            </Button>
+            {superAdmin && (
+              <Button variant="outline" onClick={() => router.push(`/${section === "primaire" ? "secondaire" : "primaire"}/structure`)}>
+                Voir {section === "primaire" ? "Secondaire" : "Primaire"}
+              </Button>
+            )}
             <Button onClick={openCreate}><span className="mr-1">+</span> Ajouter une classe</Button>
             <Button variant="outline" onClick={() => setCsvOpen(true)}>Importer (CSV)</Button>
           </div>

@@ -325,6 +325,13 @@ begin
    where id = p_cell_id
    returning version into new_version;
 
+  -- The fiche's own timestamp is what the dashboard ("Dernière modif.")
+  -- and the fiche list sort by. Cell edits should advance it so the list
+  -- reflects that the teacher actually worked on the fiche.
+  update public.fiches
+     set updated_at = now()
+   where id = v_fiche;
+
   perform public.log_activity(v_fiche, v_actor, 'cell_updated',
     jsonb_build_object('cell_id', p_cell_id, 'value', coalesce(p_value, '')));
 

@@ -13,6 +13,7 @@ import {
 
 type SousBranche = { id: string; name: string };
 type Branche = { id: string; name: string; sections: string[]; sous_branches: SousBranche[] };
+type Section = "primaire" | "secondaire";
 
 function sectionTags(sections: string[]) {
   const both = sections.includes("primaire") && sections.includes("secondaire");
@@ -22,7 +23,7 @@ function sectionTags(sections: string[]) {
   return null;
 }
 
-export function BranchesManager({ branches, canManage }: { branches: Branche[]; canManage: boolean }) {
+export function BranchesManager({ branches, canManage, scope }: { branches: Branche[]; canManage: boolean; scope: Section[] }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [sectionFilter, setSectionFilter] = useState("all");
@@ -36,6 +37,10 @@ export function BranchesManager({ branches, canManage }: { branches: Branche[]; 
   const [sousBranches, setSousBranches] = useState<string[]>([""]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const canPrim = scope.includes("primaire");
+  const canSec = scope.includes("secondaire");
+  const multiSection = canPrim && canSec;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -51,7 +56,8 @@ export function BranchesManager({ branches, canManage }: { branches: Branche[]; 
   }, [branches, query, sectionFilter, sbFilter]);
 
   function openCreate() {
-    setEdit(null); setName(""); setUsePrim(true); setUseSec(true); setSousBranches([""]); setError(null); setOpen(true);
+    setEdit(null); setName("");
+    setUsePrim(canPrim); setUseSec(canSec); setSousBranches([""]); setError(null); setOpen(true);
   }
   function openEdit(b: Branche) {
     setEdit(b); setName(b.name);
@@ -63,9 +69,16 @@ export function BranchesManager({ branches, canManage }: { branches: Branche[]; 
 
   async function submit() {
     setBusy(true); setError(null);
-    const sections: ("primaire" | "secondaire")[] = [];
-    if (usePrim) sections.push("primaire");
-    if (useSec) sections.push("secondaire");
+    // Section admins keep whatever the branch already had outside their scope
+    // (e.g. a shared "Primaire + Secondaire" branch edited by a primaire admin
+    // stays usable in secondaire — they only manage their own side).
+    const preserved = edit
+      ? (edit.sections as Section[]).filter((s) => !scope.includes(s))
+      : [];
+    const sections: Section[] = [...preserved];
+    if (usePrim && canPrim) sections.push("primaire");
+    if (useSec && canSec) sections.push("secondaire");
+    if (!sections.length) { setError("Sélectionnez au moins une section."); setBusy(false); return; }
     const names = sousBranches.map((s) => s.trim()).filter(Boolean);
     const res = edit
       ? await updateBranche({ id: edit.id, name, sections, sous_branches: names })
@@ -100,9 +113,9 @@ export function BranchesManager({ branches, canManage }: { branches: Branche[]; 
         <Input placeholder="Rechercher une branche…" value={query} onChange={(e) => setQuery(e.target.value)} className="max-w-xs" />
         <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)}>
           <option value="all">Toutes les sections</option>
-          <option value="both">Primaire + Secondaire</option>
-          <option value="prim">Primaire</option>
-          <option value="sec">Secondaire</option>
+          {multiSection && <option value="both">Primaire + Secondaire</option>}
+          {canPrim && <option value="prim">Primaire</option>}
+          {canSec && <option value="sec">Secondaire</option>}
         </select>
         <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={sbFilter} onChange={(e) => setSbFilter(e.target.value)}>
           <option value="all">Avec ou sans sous-branches</option>
@@ -167,9 +180,16 @@ export function BranchesManager({ branches, canManage }: { branches: Branche[]; 
             <div>
               <Label>Utilisable en</Label>
               <div className="mt-1 flex gap-4">
-                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={usePrim} onChange={(e) => setUsePrim(e.target.checked)} /> Primaire</label>
-                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={useSec} onChange={(e) => setUseSec(e.target.checked)} /> Secondaire</label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={usePrim} disabled={!canPrim}
+                    onChange={(e) => setUsePrim(e.target.checked)} /> Primaire
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={useSec} disabled={!canSec}
+                    onChange={(e) => setUseSec(e.target.checked)} /> Secondaire
+                </label>
               </div>
+              {!multiSection && <p className="mt-1 text-xs text-slate-400">Section fixée pour votre compte admin.</p>}
             </div>
             <div>
               <Label>Sous-branches (optionnel)</Label>

@@ -15,7 +15,8 @@ export default async function StructurePage({
 
   const user = await getSessionUser();
   if (!user) redirect("/login");
-  const canManage = isSuperAdmin(user.roles) || isSectionAdmin(user.roles, section);
+  const superAdmin = isSuperAdmin(user.roles);
+  const canManage = superAdmin || isSectionAdmin(user.roles, section);
   if (!canManage) redirect("/");
 
   const supabase = await createClient();
@@ -90,6 +91,7 @@ export default async function StructurePage({
       classes={items}
       teachers={teachers}
       canManage={canManage}
+      superAdmin={superAdmin}
     />
   );
 }

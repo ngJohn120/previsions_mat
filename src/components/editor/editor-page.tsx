@@ -62,8 +62,8 @@ export function EditorPage({
   );
 
   const handleCellCommit = useCallback(
-    (cellId: string, value: string, version: number) => {
-      writeCell(cellId, value, version).catch(() => {});
+    async (cellId: string, value: string, version: number) => {
+      await writeCell(cellId, value, version);
     },
     [writeCell]
   );
@@ -128,6 +128,7 @@ export function EditorPage({
         onSubmit={editable ? submit : undefined}
         printHref={`/impression/${fiche.id}`}
         syncLabel={syncLabel}
+        syncStatus={status}
         extra={
           editable && status === "conflit" ? (
             <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">

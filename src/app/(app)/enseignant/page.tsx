@@ -1,8 +1,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getSessionUser, isSuperAdmin, isSectionAdmin } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
 import { listSchoolYears, getActiveSchoolYear } from "@/lib/school-year";
-import { listFicheItems, type FicheListItemData } from "@/lib/fiche";
+import { listFicheItems } from "@/lib/fiche";
 import { FicheList } from "@/components/enseignant/fiche-list";
 
 const YEAR_COOKIE = "pm_year";
@@ -30,20 +30,15 @@ export default async function EnseignantDashboardPage() {
     );
   }
 
-  // RLS-scoped: teacher sees own attributions; section admins see their section
-  const fiches = await listFicheItems(currentYear.id);
-
-  const isAdmin =
-    isSuperAdmin(user.roles) ||
-    isSectionAdmin(user.roles, "primaire") ||
-    isSectionAdmin(user.roles, "secondaire");
+  // Always "Mes fiches": attributions where the current user is the teacher.
+  const fiches = await listFicheItems(currentYear.id, user.id);
 
   return (
     <FicheList
       yearId={currentYear.id}
       yearLabel={currentYear.label}
       userName={user.fullName ?? user.email ?? ""}
-      viewerIsAdmin={isAdmin}
+      viewerIsAdmin={false}
       initialFiches={fiches}
     />
   );

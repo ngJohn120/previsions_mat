@@ -12,11 +12,56 @@ const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const c = createClient(url, key, { auth: { persistSession: false } });
 
-const YEAR_ID = "ec5ef256-9bba-42a9-bc46-e56db21ec9aa";
-const TEACHERS = {
-  prim: "6075c061-9447-46ce-a726-9405238251c2", // Mbuyi Kabongo
-  sec: "5111ecda-4fec-4a69-9454-47d78e4c6112",   // Kazadi Mutombo
-};
+// ---------- ID discovery (no hardcoded UUIDs) ----------
+async function ensureActiveYear() {
+  const { data } = await c
+    .from("school_years")
+    .select("id, label")
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (data?.[0]) return data[0].id;
+  // No active year — create the 2026–2027 one (mirrors seed-year.mjs).
+  const { data: created, error } = await c
+    .from("school_years")
+    .insert({
+      label: "2026 – 2027",
+      start_date: "2026-09-01",
+      end_date: "2027-07-07",
+      status: "active",
+    })
+    .select("id");
+  if (error) throw error;
+  console.log("created active year", created[0].id);
+  return created[0].id;
+}
+
+async function findTeacher(section) {
+  // Dedicated teacher for the section: an `enseignant` who is NOT also a
+  // section admin (admin.* + enseignant hybrid accounts like admin.prim exist
+  // in the seed, and they sort before the dedicated teachers by UUID).
+  const { data: adminRows } = await c
+    .from("user_roles")
+    .select("user_id")
+    .in("role", ["admin_primaire", "admin_secondaire", "super_admin"]);
+  const adminIds = new Set((adminRows ?? []).map((x) => x.user_id));
+
+  const { data: roles, error } = await c
+    .from("user_roles")
+    .select("user_id")
+    .eq("role", "enseignant")
+    .eq("section", section)
+    .order("user_id");
+  if (error) throw error;
+
+  const dedicated = (roles ?? []).filter((r) => !adminIds.has(r.user_id))[0];
+  const chosen = dedicated ?? (roles ?? [])[0];
+  if (!chosen) throw new Error(`no enseignant found for section ${section} — run supabase/migrations (0003) first`);
+
+  const { data: prof } = await c.from("profiles").select("full_name").eq("id", chosen.user_id).maybeSingle();
+  console.log(`  enseignant ${section}: ${prof?.full_name ?? "?"} (${chosen.user_id})${dedicated ? "" : " [fallback hybrid]"}`);
+  return chosen.user_id;
+}
 
 // ---------- minimal calendar helpers (mirror src/lib/calendar.ts) ----------
 const MONTHS_FR = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
@@ -78,9 +123,21 @@ function sampleContent(rows, colSeed) {
 }
 
 async function main() {
+  const YEAR_ID = await ensureActiveYear();
+  const TEACHERS = {
+    prim: await findTeacher("primaire"),
+    sec: await findTeacher("secondaire"),
+  };
+  console.log("seeding year", YEAR_ID, "teachers:", TEACHERS);
+
   // ---- Reset prior demo seed (idempotent-ish re-run) ----
+  // fiches/attributions cascade from classes; delete by year to stay re-runnable
+  const { data: priorClasses } = await c.from("classes").select("id").eq("school_year_id", YEAR_ID);
+  if (priorClasses?.length) {
+    await c.from("attributions").delete().in("classe_id", priorClasses.map((x) => x.id));
+    await c.from("classes").delete().in("id", priorClasses.map((x) => x.id));
+  }
   await c.from("template_versions").delete().eq("school_year_id", YEAR_ID);
-  await c.from("classes").delete().eq("school_year_id", YEAR_ID);
   await c.from("branches").delete().in("name", ["Français", "Mathématiques"]);
 
   // ---- Branches ----

@@ -4,7 +4,11 @@ Manual end-to-end test script for the local app.
 
 ## Prerequisites
 
-- Dev server: `npm run dev -- -p 3001` (LAN: prefix with `LOCAL_LAN_HOST`).
+- Dev server running on **port 3001** (port 3000 is permanently reserved for the Hermes WhatsApp bridge — never use it for this app):
+  ```bash
+  npm run dev          # → http://localhost:3001
+  ```
+  For phone/tablet access on the same Wi-Fi, open `http://<PC-LAN-IP>:3001` (e.g. `192.168.11.102`). `next.config.ts` auto-allows the machine's LAN IPv4 addresses in `allowedDevOrigins` so dev resources (HMR, fonts, CSS) load over LAN — restart the dev server after changing the config or the PC's IP. The helper scripts default to `http://localhost:3001`; override with `BASE_URL` or edit the `BASE` constant at the top of each script if you run on another port.
 - Linked Supabase dev project with migrations `0001`–`0009` applied.
 - Demo data (optional but recommended):
   ```bash
@@ -26,7 +30,7 @@ Manual end-to-end test script for the local app.
 
 ### 1. Login / shell
 - [ ] Open `http://localhost:3001/login`, sign in as `m.mbuyi@siloe.edu`.
-- [ ] Topbar shows: logo, **Mes fiches / Notifications** nav, year 2026–2027, bell, avatar.
+- [ ] Topbar shows: logo, **Mes fiches** nav, year 2026–2027, bell, avatar.
 - [ ] PWA: Chrome DevTools → Application → Service Workers → `sw.js` registered; manifest loads at `/manifest.webmanifest`.
 
 ### 2. Teacher dashboard (`/enseignant`)
@@ -48,6 +52,9 @@ Manual end-to-end test script for the local app.
 - [ ] Approve → fiche back to brouillon; teacher gets a notification (bell count).
 
 ### 5. Offline / sync (primary editor)
+
+> **Prerequisite for the reload steps below:** keep the fiche open in the same tab/profile and load it **online at least once first** so the service worker (`sw.js`) is installed and controlling that origin. Use `http://localhost:3001` consistently — the SW is origin-scoped, so switching between `localhost:3001` and `127.0.0.1:3001` (or another port) acts like a fresh origin with no SW. If you get « This site can't be reached » on a reload, you are on an origin/tab that has no active service worker yet — go back online, load `/fiche/[id]` once, then repeat the offline steps.
+
 - [ ] DevTools → Network → Offline. Edit a cell → banner « Hors ligne… », toolbar pill shows offline.
 - [ ] Reload (still offline) → content loads from IndexedDB (auto-resume), edits persist.
 - [ ] Go back online → outbox drains; server value matches.
@@ -84,4 +91,4 @@ npm run build       # production build (all routes listed)
 
 - **PDF 500**: ensure Chrome installed at `C:\Program Files\Google\Chrome\Application\chrome.exe` (or set `CHROME_PATH`); route needs auth cookie.
 - **Migration push hangs**: known Supabase CLI pg-delta catalog timeout noise; re-run `supabase db push --linked`.
-- **Port 3000 conflict**: it's the Hermes WhatsApp bridge — always dev on **3001**.
+- **Port 3000 is the Hermes WhatsApp bridge — never run this app there.** `npm run dev` is pinned to **3001**. If a stray `next dev` grabs 3000 (it shows up as `start-server.js` with `Dir: ...Prevision_WebApp`), kill that PID — the bridge owns 3000. Scripts in `scripts/` default to `http://localhost:3001` at the top (`BASE`) — override with `BASE_URL` if you run elsewhere.

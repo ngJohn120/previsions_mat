@@ -1,55 +1,89 @@
 import { redirect, notFound } from "next/navigation";
+import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
 import { getFicheForUser } from "@/lib/fiche";
-import { splitPrintPages } from "@/lib/print";
-import { PrimaryPrint } from "@/components/print/primary-print";
-import { SecondaryPrint } from "@/components/print/secondary-print";
-import { PrintToolbar } from "@/components/print/print-toolbar";
 import { titleForSection } from "@/lib/school";
+import { generateFichePageImages } from "@/lib/print-pdf";
+import { PdfDownloadButton } from "@/components/print/pdf-download-button";
 
+export const dynamic = "force-dynamic";
+
+/**
+ * Aperçu impression — affiche le rendu officiel (ReportLab/Python) sous forme
+ * d'images par page. Chaque page est un PNG (généré via pypdfium2) : aucune
+ * navigation vers un PDF, donc aucun téléchargement intempestif — la page
+ * s'affiche dans n'importe quel navigateur / webview.
+ */
 export default async function ImpressionPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ ficheId: string }>;
-  searchParams: Promise<{ scale?: string }>;
 }) {
   const { ficheId } = await params;
-  const { scale } = await searchParams;
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
   const data = await getFicheForUser(ficheId);
   if (!data) notFound();
 
-  const pages = splitPrintPages(data.rows, data.meta.section);
   const statut = data.fiche.statut;
-  const scaleNum = scale ? Math.min(1.6, Math.max(0.6, Number(scale) || 1)) : 1;
+  const section = data.meta.section;
+  const title = `${titleForSection(section)} — ${section === "primaire" ? "Primaire" : "Secondaire"}`;
+
+  let pageImages: string[] | null = null;
+  let pageError: string | null = null;
+  try {
+    pageImages = await generateFichePageImages(ficheId);
+  } catch (e) {
+    pageError = e instanceof Error ? e.message : "Erreur de rendu";
+  }
 
   return (
-    <div className="print-root">
-      <PrintToolbar
-        ficheId={ficheId}
-        editorHref={`/fiche/${ficheId}`}
-        title={`Aperçu impression · ${titleForSection(data.meta.section)} — ${data.meta.section === "primaire" ? "Primaire" : "Secondaire"}`}
-        statut={statut}
-        scale={scaleNum}
-      />
-
-      {/* Hint */}
-      <div className="no-print mx-auto max-w-[900px] px-4 pt-3 text-center text-xs text-slate-400">
-        Reproduction fidèle du formulaire papier (A4 paysage, {pages.length} page{pages.length > 1 ? "s" : ""}). Les brouillons portent un filigrane « BROUILLON ». Pour un vrai PDF : « Imprimer / PDF » → Enregistrer en PDF (orientation paysage), ou « Télécharger le PDF ».
+    <div className="no-print min-h-screen bg-slate-100">
+      {/* Barre d'outils */}
+      <div className="sticky top-0 z-30 border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-[1100px] flex-wrap items-center gap-3 px-4 py-2.5">
+          <Link
+            href={`/fiche/${ficheId}`}
+            className="text-sm font-semibold text-slate-600 hover:text-slate-900"
+          >
+            ← Retour à l&apos;éditeur
+          </Link>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-bold text-slate-800">{title}</div>
+          </div>
+          <div className="flex-1" />
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+              statut === "brouillon" ? "bg-slate-100 text-slate-600" : "bg-blue-100 text-blue-700"
+            }`}
+          >
+            {statut === "brouillon" ? "Brouillon" : "Soumise"}
+          </span>
+          <PdfDownloadButton ficheId={ficheId} />
+        </div>
       </div>
 
-      {/* Sheets (scaled in preview; print uses natural CSS unless ?scale set) */}
-      <div
-        className="preview-wrap"
-        style={scaleNum !== 1 ? { zoom: scaleNum } : undefined}
-      >
-        {data.meta.section === "primaire" ? (
-          <PrimaryPrint pages={pages} meta={data.meta} statut={statut} />
-        ) : (
-          <SecondaryPrint pages={pages} meta={data.meta} statut={statut} />
+      {/* Pages du document */}
+      <div className="mx-auto flex max-w-[1100px] flex-col items-center gap-6 px-4 py-6">
+        {pageError && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {pageError}
+          </div>
+        )}
+        {pageImages?.map((src, i) => (
+          <div
+            key={i}
+            className="w-full overflow-hidden rounded-lg border border-slate-300 bg-white shadow-md"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={src} alt={`Page ${i + 1}`} className="block h-auto w-full" />
+          </div>
+        ))}
+        {pageImages && pageImages.length > 0 && (
+          <p className="pb-2 text-xs text-slate-400">
+            — Page 1 / {pageImages.length} —
+          </p>
         )}
       </div>
     </div>

@@ -1,10 +1,10 @@
 "use client";
 
 // Conflict resolver: side-by-side A/B with option to edit a C value.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { listConflicts, removeConflict } from "@/lib/db";
+import { listConflicts, removeConflict, putConflict } from "@/lib/db";
 import { enqueue } from "@/lib/sync/outbox";
 import { drainOutbox } from "@/lib/sync/outbox";
 import { executeOp } from "@/lib/sync/transport";
@@ -45,17 +45,36 @@ export function useConflicts(ficheId: string, rows: FicheRow[]) {
     let alive = true;
     listConflicts(ficheId).then((all) => {
       if (!alive) return;
+      // One-time migration: records created before conflict timestamps existed
+      // have no createdAt. Stamp them at first sight so every card shows a
+      // detectable time; persist so it stays stable across reloads.
+      const legacy = all.filter((c) => !c.createdAt);
+      if (legacy.length > 0) {
+        const now = Date.now();
+        Promise.all(
+          legacy.map((c) =>
+            putConflict({ ...c, createdAt: now }, ficheId).catch(() => {})
+          )
+        ).then(() => {
+          if (alive) setTick((v) => v + 1);
+        });
+      }
       const vm: ConflictVM[] = all.map((c) => {
         const row = rows.find((r) => r.row_uuid === c.rowUuid);
-        const cellId = row?.cells[c.cellKey]?.id ?? null;
-        const serverVersion = row?.cells[c.cellKey]?.version ?? null;
+        const cell = row?.cells[c.cellKey];
+        const cellId = cell?.id ?? null;
         return {
           ...c,
           key: c.key,
           rowLabel: rowLabel(row),
           cellLabel: COL_LABELS[c.cellKey] ?? c.cellKey,
           cellId,
-          serverVersion,
+          // Prefer the version captured at conflict time; fall back to the
+          // currently rendered row's version.
+          serverVersion: c.serverVersion ?? cell?.version ?? null,
+          // Migration fallback so legacy (pre-timestamp) records still show
+          // something in the card header.
+          createdAt: c.createdAt ?? Date.now(),
         };
       });
       setLoaded(vm);
@@ -64,6 +83,16 @@ export function useConflicts(ficheId: string, rows: FicheRow[]) {
       alive = false;
     };
   }, [ficheId, rows, tick]);
+
+  // Refresh when the sync-resume layer detects a conflict on this fiche.
+  useEffect(() => {
+    function onConflictsChanged(e: Event) {
+      const detail = (e as CustomEvent<{ ficheId?: string }>).detail;
+      if (!detail?.ficheId || detail.ficheId === ficheId) setTick((v) => v + 1);
+    }
+    window.addEventListener("pm:conflicts-changed", onConflictsChanged);
+    return () => window.removeEventListener("pm:conflicts-changed", onConflictsChanged);
+  }, [ficheId]);
 
   return { conflicts: loaded, refresh: () => setTick((v) => v + 1) };
 }
@@ -135,10 +164,19 @@ export function ConflictResolver({
       <div className="space-y-3">
         {conflicts.map((c) => (
           <div key={c.key} className="rounded-lg border border-slate-200 bg-white p-3">
-            <div className="mb-2 text-xs text-slate-500">
+            <div className="mb-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-slate-500">
               <b className="text-slate-700">{c.rowLabel}</b>
-              <span className="mx-1.5">·</span>
+              <span>·</span>
               {c.cellLabel}
+              {c.createdAt && (
+                <>
+                  <span>·</span>
+                  <span className="text-slate-400" title={`Détecté le ${new Date(c.createdAt).toLocaleString("fr-FR")}`}>
+                    {new Date(c.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}{" "}
+                    {new Date(c.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </>
+              )}
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               <VersionCard

@@ -5,16 +5,35 @@ import puppeteer from "puppeteer-core";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 loadEnvFile(".env.local");
+import { createClient } from "@supabase/supabase-js";
 
-const BASE = process.env.PDF_BASE_URL ?? "http://localhost:3001";
+const BASE = process.env.BASE_URL ?? process.env.PDF_BASE_URL ?? "http://localhost:3001";
 const CHROME = process.env.CHROME_PATH ?? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const OUT_DIR = "docs/out";
 mkdirSync(OUT_DIR, { recursive: true });
 
-const FICHES = {
-  primary: "a36014d8-25fa-45b9-97ad-5ce938bfa469",
-  secondary: "2058e667-5b8a-4052-b7c6-b476d057a157",
-};
+// Auto-discover the demo fiche per section (no hardcoded UUIDs — the demo seed
+// regenerates IDs on every run). Requires `node scripts/seed-demo.mjs` first.
+async function discoverFiches() {
+  const c = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
+  const { data, error } = await c
+    .from("fiches")
+    .select("id, attributions(classes(section, name))");
+  if (error) throw error;
+  const out = {};
+  for (const f of data ?? []) {
+    const section = f.attributions?.classes?.section;
+    if (section && !out[section]) out[section] = f.id;
+  }
+  if (!out.primaire || !out.secondaire) {
+    throw new Error(
+      "Could not find a fiche for both primaire and secondaire — run `node scripts/seed-demo.mjs` first."
+    );
+  }
+  return { primary: out.primaire, secondary: out.secondaire };
+}
 
 async function login(page, email) {
   await page.goto(`${BASE}/login`, { waitUntil: "networkidle0", timeout: 45000 });
@@ -37,6 +56,8 @@ async function fetchPdf(cookies, ficheId, scale = 1) {
 }
 
 async function main() {
+  const FICHES = await discoverFiches();
+  console.log("fiches:", FICHES);
   const browser = await puppeteer.launch({
     executablePath: CHROME, headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu"],
   });

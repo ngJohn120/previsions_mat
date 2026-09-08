@@ -63,18 +63,40 @@ export async function executeOp(
   return { error: "Opération non supportée (admin)" };
 }
 
+/**
+ * Fetch the current server value + version of a single cell. Used when an
+ * outbox write is rejected with a version conflict, so the resolver can show
+ * the *actual* server value (not a stale local/cache value).
+ */
+export async function fetchCellServerState(
+  cellId: string
+): Promise<{ value: string; version: number } | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("fiche_cells")
+    .select("value, version")
+    .eq("id", cellId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ?? null;
+}
+
 /** Pull the latest rows + cells for a fiche (RLS-scoped). */
 export async function pullFicheRows(ficheId: string): Promise<FicheRow[]> {
   const supabase = createClient();
-  const { data: rows } = await supabase
+  const { data: rows, error: rowsError } = await supabase
     .from("fiche_rows")
     .select("*")
     .eq("fiche_id", ficheId)
     .order("ordre");
-  const { data: cells } = await supabase
+  // A failed network/API call must not be mistaken for "the fiche has no rows"
+  // — otherwise the merge step below would wipe the locally shown grid.
+  if (rowsError) throw new Error(rowsError.message);
+  const { data: cells, error: cellsError } = await supabase
     .from("fiche_cells")
     .select("id, fiche_row_id, col_key, value, version")
     .in("fiche_row_id", (rows ?? []).map((r) => r.id));
+  if (cellsError) throw new Error(cellsError.message);
 
   const cellMap = new Map<string, Record<string, { id: string; value: string; version: number }>>();
   for (const c of cells ?? []) {

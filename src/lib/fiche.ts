@@ -245,11 +245,18 @@ type ListRowPayload = {
 type PendingUnlockRow = { fiche_id: string };
 
 /**
- * Compact list of the current user's fiches for the teacher dashboard
- * (single round-trip; avoids loading full rows/cells per fiche).
+ * Compact list of fiches owned by the given teacher for the dashboard
+ * "Mes fiches" (single round-trip; avoids loading full rows/cells per fiche).
+ * Always scoped to attributions where the current user is the teacher
+ * (enseignant_id = userId) — even for section admins who also hold the
+ * enseignant role: "Mes fiches" shows their own taught subjects, not the
+ * whole section (the whole-section view belongs to the Suivi page).
  * Includes whether an unlock request is currently pending.
  */
-export async function listFicheItems(yearId: string): Promise<FicheListItemData[]> {
+export async function listFicheItems(
+  yearId: string,
+  userId: string
+): Promise<FicheListItemData[]> {
   const supabase = await createClient();
 
   const { data: attribs } = await supabase
@@ -258,6 +265,7 @@ export async function listFicheItems(yearId: string): Promise<FicheListItemData[
       "id, classe:classes(name, section), branche:branches(name), sous_branche:sous_branches(name), fiche:fiches(id, statut, conflit, updated_at, submitted_at)"
     )
     .eq("school_year_id", yearId)
+    .eq("enseignant_id", userId)
     .returns<ListRowPayload[]>();
 
   const items = (attribs ?? []).filter((a): a is typeof a & { fiche: NonNullable<typeof a.fiche> } => !!a.fiche);

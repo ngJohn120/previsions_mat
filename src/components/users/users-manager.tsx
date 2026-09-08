@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const ROLE_LABELS: Record<string, string> = {
   super_admin: "Super admin",
@@ -190,22 +191,27 @@ export function UsersManager({ users }: { users: UserItem[] }) {
         <Button onClick={openCreate}>
           <span className="mr-1">+</span> Nouvel utilisateur
         </Button>
-        <Button variant="outline" onClick={() => setCsvOpen(true)}>
-          Importer (CSV)
-        </Button>
+        <Tooltip>
+          <TooltipTrigger render={<Button variant="outline" onClick={() => setCsvOpen(true)} />}>
+            Importer (CSV)
+          </TooltipTrigger>
+          <TooltipContent>
+            Colonnes attendues : email, nom, téléphone, rôle, section
+          </TooltipContent>
+        </Tooltip>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
-              <th className="px-4 py-3">Nom</th>
-              <th className="px-4 py-3">E-mail</th>
-              <th className="px-4 py-3">Téléphone</th>
-              <th className="px-4 py-3">Rôles</th>
-              <th className="px-4 py-3">Section</th>
-              <th className="px-4 py-3">Actif</th>
-              <th className="px-4 py-3 text-right">Actions</th>
+              <th className="px-4 py-3 whitespace-nowrap">Nom</th>
+              <th className="px-4 py-3 whitespace-nowrap">E-mail</th>
+              <th className="px-4 py-3 whitespace-nowrap">Téléphone</th>
+              <th className="px-4 py-3 whitespace-nowrap">Rôles</th>
+              <th className="px-4 py-3 whitespace-nowrap">Section</th>
+              <th className="px-4 py-3 whitespace-nowrap">Actif</th>
+              <th className="px-4 py-3 text-right whitespace-nowrap">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
