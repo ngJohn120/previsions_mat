@@ -2,7 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { generateCalendar } from "@/app/(app)/admin/calendrier/actions";
+import {
+  deleteTemplateRow, generateCalendar, insertTemplateEvent, insertTemplateWeek,
+  shiftTemplateWeek, updateTemplateRow,
+} from "@/app/(app)/admin/calendrier/actions";
+import { parseLabelBounds } from "@/lib/calendar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +26,132 @@ type Row = {
   evenement_label: string | null;
 };
 
+const EVENT_TYPES = ["evaluation", "examen", "revision", "vacances", "detente"] as const;
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  evaluation: "Évaluation", examen: "Examen", revision: "Révision",
+  vacances: "Vacances", detente: "Détente",
+};
+
+/** ISO date (yyyy-mm-dd from <input type="date">) → DD/MM/YYYY label bound. */
+function isoToFr(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return "";
+  return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y}`;
+}
+
+/** RowEditor: the side-panel edit form. Keyed by the row's identity + data so
+ *  the fields re-initialize whenever the row changes (selection or refresh). */
+function RowEditor({
+  row, busy, onSave, onShift, onInsertWeek, onInsertEvent, onDelete,
+}: {
+  row: Row;
+  busy: boolean;
+  onSave: (fields: { start: string; end: string; periode: string; eventType: string }) => Promise<string | null>;
+  onShift: (deltaDays: number) => void;
+  onInsertWeek: () => void;
+  onInsertEvent: (label: string, type: string) => void;
+  onDelete: () => void;
+}) {
+  const bounds = parseLabelBounds(row.date_label);
+  const toIso = (d?: Date) =>
+    d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` : "";
+  const [start, setStart] = useState(toIso(bounds.start));
+  const [end, setEnd] = useState(toIso(bounds.end));
+  const [periode, setPeriode] = useState(row.periode_label ?? "");
+  const [eventType, setEventType] = useState(row.row_type === "enseignement" ? "evaluation" : (row.evenement_label ?? "evaluation"));
+  const [eventOpen, setEventOpen] = useState(false);
+  const [evLabel, setEvLabel] = useState("Évaluation");
+  const [evType, setEvType] = useState("evaluation");
+  const [localErr, setLocalErr] = useState<string | null>(null);
+  const isWeek = row.row_type === "enseignement";
+
+  async function save() {
+    setLocalErr(null);
+    if (!start || !end) { setLocalErr("Renseignez les deux dates."); return; }
+    if (start > end) { setLocalErr("La date de début doit précéder la date de fin."); return; }
+    const err = await onSave({ start, end, periode, eventType });
+    if (err) setLocalErr(err);
+  }
+
+  return (
+    <div className="mt-3 space-y-3 text-sm">
+      <div className="flex justify-between">
+        <span className="text-slate-500">N°</span>
+        <span className="font-semibold">{isWeek ? `S${row.semaine_num}` : "—"}</span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label>Début</Label>
+          <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} disabled={busy} />
+        </div>
+        <div>
+          <Label>Fin</Label>
+          <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} disabled={busy} />
+        </div>
+      </div>
+
+      <div>
+        <Label>Période</Label>
+        <Input value={periode} onChange={(e) => setPeriode(e.target.value)} placeholder="— " disabled={busy} />
+      </div>
+
+      {!isWeek && (
+        <div>
+          <Label>Type</Label>
+          <select
+            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            value={eventType}
+            onChange={(e) => setEventType(e.target.value)}
+            disabled={busy}
+          >
+            {EVENT_TYPES.map((t) => <option key={t} value={t}>{EVENT_TYPE_LABELS[t]}</option>)}
+          </select>
+        </div>
+      )}
+
+      {(localErr) && <div className="rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-700">{localErr}</div>}
+
+      <Button className="w-full" onClick={save} disabled={busy}>{busy ? "…" : "Enregistrer"}</Button>
+
+      <div className="flex gap-2">
+        <Button variant="outline" className="flex-1" onClick={() => onShift(-1)} disabled={busy} title="Décale toutes les lignes suivantes">− 1 j</Button>
+        <Button variant="outline" className="flex-1" onClick={() => onShift(1)} disabled={busy} title="Décale toutes les lignes suivantes">+ 1 j</Button>
+      </div>
+      <p className="-mt-1 text-[10px] text-slate-400">± 1 j décale toutes les lignes suivantes.</p>
+
+      <div className="flex flex-col gap-2 border-t border-slate-100 pt-2">
+        <Button variant="outline" onClick={onInsertWeek} disabled={busy}>Insérer une semaine</Button>
+        {!eventOpen ? (
+          <Button variant="outline" onClick={() => setEventOpen(true)} disabled={busy}>Insérer un événement</Button>
+        ) : (
+          <div className="space-y-2 rounded-lg border border-slate-200 p-2">
+            <Input value={evLabel} onChange={(e) => setEvLabel(e.target.value)} placeholder="Libellé" disabled={busy} />
+            <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={evType} onChange={(e) => setEvType(e.target.value)} disabled={busy}>
+              {EVENT_TYPES.map((t) => <option key={t} value={t}>{EVENT_TYPE_LABELS[t]}</option>)}
+            </select>
+            <div className="flex gap-2">
+              <Button className="flex-1" onClick={() => { setEventOpen(false); onInsertEvent(evLabel, evType); }} disabled={busy || !evLabel.trim()}>Insérer</Button>
+              <Button variant="outline" onClick={() => setEventOpen(false)} disabled={busy}>Annuler</Button>
+            </div>
+          </div>
+        )}
+        <Button
+          variant="outline"
+          className="border-red-200 text-red-600 hover:bg-red-50"
+          onClick={() => {
+            if (confirm(isWeek
+              ? `Supprimer la semaine S${row.semaine_num} ? Les semaines suivantes avancent d'une semaine.`
+              : "Supprimer cet événement ?")) onDelete();
+          }}
+          disabled={busy}
+        >
+          Supprimer
+        </Button>
+      </div>
+    </div>
+  );
+}
 const MONTH_NAMES = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const MONTHS_SHORT = ["Janv","Févr","Mars","Avr","Mai","Juin","Juil","Août","Sept","Oct","Nov","Déc"];
 const DOW = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
@@ -112,6 +242,24 @@ export function CalendarManager({
     return { cells, rowsByDate, daysInMonth };
   }, [viewYear, viewMonth, rows]);
 
+  // Grid row index (Mon-first) of the selected week, or null when nothing is
+  // selected or the row's start date isn't visible in the current month view.
+  // The frame anchors on the grid ROW containing the selected row's start date;
+  // the Mon–Fri span covers that entire calendar row (a calendar row IS a week).
+  const selectedWeekRow = useMemo(() => {
+    if (!selected) return null;
+    const m = selected.date_label?.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (!m) return null;
+    const start = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+    const idx = grid.cells.findIndex(
+      (c) =>
+        c.date.getFullYear() === start.getFullYear() &&
+        c.date.getMonth() === start.getMonth() &&
+        c.date.getDate() === start.getDate()
+    );
+    return idx >= 0 ? Math.floor(idx / 7) : null;
+  }, [selected, grid]);
+
   async function submitGenerate() {
     setBusy(true); setError(null);
     const res = await generateCalendar({
@@ -134,6 +282,61 @@ export function CalendarManager({
     });
     if (res.error) { setError(res.error); setBusy(false); return; }
     setGenOpen(false); setBusy(false); router.refresh();
+  }
+
+  // --- Row-editing handlers (Task 3) ---
+
+  /** Shared wrapper: guard on active version, busy flag, error surface.
+   *  NB: no router.refresh() — the actions call revalidatePath, which already
+   *  re-renders the page with the action response; a second refresh races it. */
+  async function runEdit(fn: () => Promise<{ error?: string }>): Promise<boolean> {
+    if (!versionInfo) { setError("Aucun modèle actif à éditer."); return false; }
+    setBusy(true); setError(null);
+    const res = await fn();
+    setBusy(false);
+    if (res.error) { setError(res.error); return false; }
+    return true;
+  }
+
+  function handleSave(row: Row, fields: { start: string; end: string; periode: string; eventType: string }) {
+    return runEdit(() =>
+      updateTemplateRow({
+        templateVersionId: versionInfo!.id,
+        rowId: row.id,
+        patch: {
+          date_label: `${isoToFr(fields.start)} → ${isoToFr(fields.end)}`,
+          periode_label: fields.periode.trim() || null,
+          evenement_label: row.row_type === "enseignement" ? undefined : fields.eventType,
+        },
+      })
+    ).then((ok) => (ok ? null : "Échec de l'enregistrement."));
+  }
+
+  async function handleShift(row: Row, deltaDays: number) {
+    await runEdit(() =>
+      shiftTemplateWeek({ templateVersionId: versionInfo!.id, rowId: row.id, deltaDays })
+    );
+  }
+
+  async function handleInsertWeek(row: Row) {
+    const ok = await runEdit(() =>
+      insertTemplateWeek({ templateVersionId: versionInfo!.id, afterRowId: row.id })
+    );
+    if (ok) setSelected(null); // new row visible in the grid; panel resets
+  }
+
+  async function handleInsertEvent(row: Row, label: string, type: string) {
+    const ok = await runEdit(() =>
+      insertTemplateEvent({ templateVersionId: versionInfo!.id, afterRowId: row.id, label, type })
+    );
+    if (ok) setSelected(null);
+  }
+
+  async function handleDelete(row: Row) {
+    const ok = await runEdit(() =>
+      deleteTemplateRow({ templateVersionId: versionInfo!.id, rowId: row.id })
+    );
+    if (ok) setSelected(null); // no stale panel on a deleted row
   }
 
   return (
@@ -179,13 +382,28 @@ export function CalendarManager({
             {DOW.map((d) => <div key={d} className="py-2">{d}</div>)}
           </div>
           <div className="grid grid-cols-7 gap-px bg-slate-100">
-            {grid.cells.map((c) => {
+            {grid.cells.map((c, idx) => {
               const key = `${c.date.getFullYear()}-${c.date.getMonth()}-${c.date.getDate()}`;
               const dayRows = grid.rowsByDate.get(key) ?? [];
+              // Option B selection: continuous frame around the selected school
+              // week (Mon–Fri of the row containing the selected week's Monday).
+              const col = idx % 7;
+              const rowIdx = Math.floor(idx / 7);
+              const inSelectedWeek =
+                selectedWeekRow !== null &&
+                rowIdx === selectedWeekRow &&
+                col <= 4; // Mon–Fri only
+              const frameCls = !inSelectedWeek
+                ? ""
+                : col === 0
+                  ? "week-frame-first"
+                  : col === 4
+                    ? "week-frame-last"
+                    : "week-frame-mid";
               return (
                 <div
                   key={c.key}
-                  className={`min-h-[72px] bg-white p-1 ${c.inMonth ? "" : "bg-slate-50 text-slate-400"}`}
+                  className={`min-h-[72px] bg-white p-1 ${c.inMonth ? "" : "bg-slate-50 text-slate-400"} ${frameCls}`}
                 >
                   <div className="px-1 text-xs font-bold">{c.date.getDate()}</div>
                   <div className="mt-0.5 space-y-0.5">
@@ -206,21 +424,20 @@ export function CalendarManager({
           </div>
         </div>
 
-        {/* Side panel */}
+        {/* Side panel: edit form keyed by row id so it re-initializes on selection change */}
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h3 className="text-sm font-bold text-slate-800">Semaine sélectionnée</h3>
           {selected ? (
-            <div className="mt-3 space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-slate-500">N°</span><span className="font-semibold">{selected.row_type === "enseignement" ? `S${selected.semaine_num}` : "—"}</span></div>
-              <div className="flex justify-between gap-2"><span className="text-slate-500">Dates</span><span className="text-right">{selected.date_label ?? "—"}</span></div>
-              <div className="flex justify-between gap-2"><span className="text-slate-500">Période</span><span className="text-right">{selected.periode_label ?? "—"}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">Type</span>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${rowColor(selected.row_type === "enseignement" ? "enseignement" : (selected.evenement_label ?? "vacances"))}`}>
-                  {selected.row_type === "enseignement" ? "Enseignement" : (selected.evenement_label ?? "Événement")}
-                </span>
-              </div>
-              <div className="pt-2 text-xs text-slate-400">Édition détaillée (type/période) à venir dans la vue complète.</div>
-            </div>
+            <RowEditor
+              key={selected.id}
+              row={selected}
+              busy={busy}
+              onSave={(fields) => handleSave(selected, fields)}
+              onShift={(d) => handleShift(selected, d)}
+              onInsertWeek={() => handleInsertWeek(selected)}
+              onInsertEvent={(label, type) => handleInsertEvent(selected, label, type)}
+              onDelete={() => handleDelete(selected)}
+            />
           ) : (
             <p className="mt-3 text-sm text-slate-400">Cliquez sur une semaine ou un événement du calendrier.</p>
           )}

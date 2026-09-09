@@ -13,7 +13,8 @@ const MONTHS_FR = [
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
 ];
 
-function fmt(d: Date): string {
+/** DD/MM/YYYY formatter (exported: server actions build date_label with it). */
+export function fmt(d: Date): string {
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yyyy = d.getFullYear();
@@ -151,4 +152,154 @@ export function shortDateLabel(start: Date, end: Date): string {
   const mm2 = String(end.getMonth() + 1).padStart(2, "0");
   const yyyy2 = end.getFullYear();
   return `${dd1} → ${dd2}/${mm2}/${yyyy2}`;
+}
+
+// ---------------------------------------------------------------------------
+// Calendar editing helpers (mid-year adjustments).
+// Pure, no DB, no crypto: rows are DB-shaped (EditRow) and operations return
+// new arrays — server actions persist the diffs.
+// ---------------------------------------------------------------------------
+
+/** DB-shaped template row: RowSeed + stable ids (id = template_rows PK). */
+export type EditRow = RowSeed & { id: string; row_uuid: string };
+
+/** Recompute ordre = list position (1-based). */
+export function renumberRows<T extends { ordre: number }>(rows: T[]): T[] {
+  return rows.map((r, i) => ({ ...r, ordre: i + 1 }));
+}
+
+/** Recompute semaine_num 1..n on enseignement rows (list order); events keep null. */
+export function resequenceWeeks<T extends RowSeed>(rows: T[]): T[] {
+  let n = 0;
+  return rows.map((r) => {
+    if (r.row_type !== "enseignement") return r;
+    n += 1;
+    return { ...r, semaine_num: n };
+  });
+}
+
+const LABEL_DATE_RE = /\d{2}\/\d{2}\/\d{4}/g;
+
+function parseFrDate(s: string): Date {
+  const [dd, mm, yyyy] = s.split("/").map(Number);
+  return new Date(yyyy, mm - 1, dd);
+}
+
+/** Shift every DD/MM/YYYY found in a date_label by deltaDays. */
+export function shiftDateLabel(label: string, deltaDays: number): string {
+  return label.replace(LABEL_DATE_RE, (m) => {
+    const d = parseFrDate(m);
+    d.setDate(d.getDate() + deltaDays);
+    return fmt(d);
+  });
+}
+
+/** Next Monday strictly after d. */
+export function nextMondayAfter(d: Date): Date {
+  const out = new Date(d);
+  out.setDate(out.getDate() + (((8 - out.getDay()) % 7) || 7));
+  return out;
+}
+
+/** Monday of d's week. */
+export function mondayOfWeek(d: Date): Date {
+  const out = new Date(d);
+  out.setDate(out.getDate() - ((out.getDay() + 6) % 7));
+  return out;
+}
+
+function addDays(d: Date, n: number): Date {
+  const out = new Date(d);
+  out.setDate(out.getDate() + n);
+  return out;
+}
+
+/** Parse the two DD/MM/YYYY bounds of a date_label ({} when absent/unparseable). */
+export function parseLabelBounds(label: string | null): { start?: Date; end?: Date } {
+  const m = label?.match(LABEL_DATE_RE);
+  return m && m.length === 2 ? { start: parseFrDate(m[0]), end: parseFrDate(m[1]) } : {};
+}
+
+/** Recompute mois from the start date for enseignement rows; events stay null. */
+export function recomputeMois<T extends RowSeed>(row: T): T {
+  if (row.row_type !== "enseignement") return { ...row, mois: null };
+  const { start } = parseLabelBounds(row.date_label);
+  return start ? { ...row, mois: monthLabel(start) } : row;
+}
+
+/** Cascade-shift rows at/after index `from` by deltaDays, then renumber + resequence. */
+function shiftFrom<T extends EditRow>(rows: T[], from: number, deltaDays: number): T[] {
+  const out = rows.map((r, i) => {
+    if (i < from) return r;
+    return recomputeMois({ ...r, date_label: r.date_label ? shiftDateLabel(r.date_label, deltaDays) : r.date_label });
+  });
+  return resequenceWeeks(renumberRows(out));
+}
+
+/** Dates for a new teaching week: anchor's successor slot, or (head) the week before the first row. */
+export function computeInsertWeek(after: EditRow | null, first: EditRow | null): { dateStart: Date; dateEnd: Date } {
+  if (after) {
+    const { end } = parseLabelBounds(after.date_label);
+    if (end) {
+      const dateStart = nextMondayAfter(end);
+      return { dateStart, dateEnd: addDays(dateStart, 4) };
+    }
+  }
+  const f = first;
+  const { start } = f ? parseLabelBounds(f.date_label) : {};
+  if (!start) throw new Error("Impossible de dériver les dates d'insertion.");
+  const dateStart = addDays(start, -7);
+  return { dateStart, dateEnd: addDays(dateStart, 4) };
+}
+
+/** Single-day date for a new event: the Monday of the anchor's start-date week. */
+export function computeInsertEventDate(anchor: EditRow | null): Date {
+  const { start } = (anchor && parseLabelBounds(anchor.date_label)) || {};
+  if (!start) throw new Error("Impossible de dériver la date de l'événement.");
+  return mondayOfWeek(start);
+}
+
+/**
+ * Insert a new teaching week after `afterId` (head when null).
+ * Anchored insert occupies the anchor's successor slot: rows AFTER the new row
+ * shift +7 days (the new row keeps the dates it was computed with).
+ * Head insert fills the empty space before the first row: nothing shifts.
+ */
+export function applyInsertWeek<T extends EditRow>(rows: T[], afterId: string | null, newRow: T): T[] {
+  const at = afterId ? rows.findIndex((r) => r.id === afterId) + 1 : 0;
+  const out = [...rows.slice(0, at), { ...newRow, ordre: 0, semaine_num: 0 }, ...rows.slice(at)];
+  return afterId
+    ? shiftFrom(out, at + 1, 7)
+    : resequenceWeeks(renumberRows(out));
+}
+
+/**
+ * Remove a row by id. Deleting a teaching week closes the gap: all later rows
+ * shift −7 days. Deleting an event only removes it (dates untouched).
+ */
+export function applyDeleteRow<T extends EditRow>(rows: T[], rowId: string): T[] {
+  const idx = rows.findIndex((r) => r.id === rowId);
+  if (idx === -1) return rows;
+  const wasTeaching = rows[idx].row_type === "enseignement";
+  const out = rows.filter((r) => r.id !== rowId);
+  return wasTeaching ? shiftFrom(out, idx, -7) : resequenceWeeks(renumberRows(out));
+}
+
+/** Shift the selected row AND every later row by deltaDays (cascade). */
+export function applyShift<T extends EditRow>(rows: T[], rowId: string, deltaDays: number): T[] {
+  const idx = rows.findIndex((r) => r.id === rowId);
+  if (idx === -1) return rows;
+  return shiftFrom(rows, idx, deltaDays);
+}
+
+/** Manual date edit: touches only that row; validates start ≤ end; recomputes mois. */
+export function applyManualDates<T extends EditRow>(
+  rows: T[], rowId: string, dateStart: Date, dateEnd: Date
+): T[] | { error: string } {
+  if (dateStart > dateEnd) return { error: "La date de début doit précéder la date de fin." };
+  const idx = rows.findIndex((r) => r.id === rowId);
+  if (idx === -1) return { error: "Ligne introuvable." };
+  const out = [...rows];
+  out[idx] = recomputeMois({ ...out[idx], date_label: `${fmt(dateStart)} → ${fmt(dateEnd)}` });
+  return out;
 }

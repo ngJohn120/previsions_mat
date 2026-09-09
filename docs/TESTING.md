@@ -73,6 +73,17 @@ Manual end-to-end test script for the local app.
 ### 9. Structure / admin pages (Phase 2)
 - [ ] `/admin/branches`, `/primaire/structure`, `/admin/calendrier`, `/admin/annee`, `/admin/utilisateurs` render with seeded data.
 
+### 9b. Calendar editing (`/admin/calendrier`, super admin only)
+- [ ] Click a week chip → side panel shows an **editable** form (Début/Fin dates, Période; events also get a Type select).
+- [ ] `Enregistrer` with unchanged fields → no error; reload → values persist.
+- [ ] Manual dates with end < start → inline error « La date de début doit précéder la date de fin. », nothing saved.
+- [ ] `+ 1 j` on a week → that week and **all later rows** shift +1 day (S1 untouched); `− 1 j` restores.
+- [ ] `Insérer une semaine` → new week in the anchor's successor slot; later weeks shift +7; numbering resequenced (no S0, no date collisions).
+- [ ] Delete that inserted week → later weeks shift −7; original layout restored.
+- [ ] `Insérer un événement` → single-day event on the anchor week's Monday; no cascade; label/type editable; delete removes it without touching weeks.
+- [ ] Existing teacher fiches are untouched by any of the above (edits only affect `template_rows`; new attributions pick up the edited calendar).
+- [ ] Known generation-dialog gotcha: event dates must be `DD/MM/YYYY` (e.g. `23/12/2026`), not ISO — the parser is DD/MM-only.
+
 ### 10. CSV import
 - [ ] **Users**: on `/admin/utilisateurs` « Importer (CSV) » → template download → fill a row (new email) → import → user appears.
 - [ ] **Classes**: `/primaire/structure` importer creates a class with titulaire by email.
