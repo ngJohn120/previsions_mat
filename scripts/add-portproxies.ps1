@@ -7,8 +7,12 @@ $ErrorActionPreference = 'Stop'
 $vmip = $args[0]
 if (-not $vmip) {
     for ($i = 0; $i -lt 30; $i++) {
-        $raw = (wsl -d podman-machine-default -- hostname -I) 2>$null
-        if ($raw -match '(\d+\.\d+\.\d+\.\d+)') { $vmip = $Matches[1]; break }
+        # 'hostname -I' does not exist in the podman machine (no hostname binary);
+        # parse eth0's inet line from `ip` instead. Out-String flattens the line
+        # array into one string — on an array, -match is a FILTER and never
+        # populates $Matches.
+        $raw = (wsl -d podman-machine-default -- ip -4 addr show eth0) 2>$null | Out-String
+        if ($raw -match 'inet\s+(\d+\.\d+\.\d+\.\d+)') { $vmip = $Matches[1]; break }
         Start-Sleep -Seconds 3
     }
 }
