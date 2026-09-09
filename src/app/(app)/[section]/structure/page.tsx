@@ -43,15 +43,21 @@ export default async function StructurePage({
     : { data: [] };
 
   // Teachers (role enseignant) in this section — for titulaire select
+  // No FK between user_roles and profiles, so fetch roles then names separately
   const { data: teacherRoles } = await supabase
     .from("user_roles")
-    .select("user_id, role, section, profile:profiles!inner(full_name)")
+    .select("user_id, role, section")
     .eq("role", "enseignant")
     .eq("section", section);
+  const teacherIds = [...new Set((teacherRoles ?? []).map((t: { user_id: string }) => t.user_id))];
+  const { data: teacherProfiles } = teacherIds.length
+    ? await supabase.from("profiles").select("id, full_name").in("id", teacherIds)
+    : { data: [] };
+  const teacherNameById = new Map((teacherProfiles ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name]));
 
-  const teachers = (teacherRoles ?? []).map((t: any) => ({
+  const teachers = (teacherRoles ?? []).map((t: { user_id: string }) => ({
     id: t.user_id,
-    full_name: t.profile?.full_name ?? "—",
+    full_name: teacherNameById.get(t.user_id) ?? "—",
   }));
 
   // Titulaire lookup

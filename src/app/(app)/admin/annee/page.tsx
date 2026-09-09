@@ -18,16 +18,21 @@ export default async function AnneePage() {
 
   const { data: classes } = await supabase.from("classes").select("id, name, section, school_year_id");
   const { data: attrs } = await supabase.from("attributions").select("id, school_year_id, classe_id, branche_id, sous_branche_id, enseignant_id");
-  const { data: teachers } = await supabase
+  // No FK between user_roles and profiles, so fetch roles then names separately
+  const { data: teacherRoles } = await supabase
     .from("user_roles")
-    .select("user_id, full_name:profiles!inner(full_name), section")
+    .select("user_id, section")
     .eq("role", "enseignant");
+  const teacherIds = [...new Set((teacherRoles ?? []).map((t: { user_id: string }) => t.user_id))];
+  const { data: teacherProfiles } = teacherIds.length
+    ? await supabase.from("profiles").select("id, full_name").in("id", teacherIds)
+    : { data: [] };
   const { data: branches } = await supabase.from("branches").select("id, name");
   const { data: sous } = await supabase.from("sous_branches").select("id, name");
 
   const branchName = new Map((branches ?? []).map((b: any) => [b.id, b.name]));
   const sousName = new Map((sous ?? []).map((s: any) => [s.id, s.name]));
-  const teacherName = new Map((teachers ?? []).map((t: any) => [t.user_id, t.full_name]));
+  const teacherName = new Map((teacherProfiles ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name]));
   const className = new Map((classes ?? []).map((c: any) => [c.id, c.name]));
 
   // Per-year summary + attribute detail for the latest year

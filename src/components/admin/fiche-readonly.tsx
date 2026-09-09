@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { EditorDocHeader } from "@/components/editor/doc-header";
 import { PrimaryGrid } from "@/components/editor/primary-grid";
 import { SecondaryGrid } from "@/components/editor/secondary-grid";
@@ -46,12 +45,27 @@ export function FicheReadOnly({
     router.refresh();
   }
 
+  // "← Retour" goes to the page the user actually came from (Suivi, Mes
+  // fiches, notifications…) instead of a hardcoded route. Fall back to the
+  // most likely origin for the viewer's role when there's no history.
+  function goBack() {
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push(viewerIsAdmin ? "/admin/suivi" : "/enseignant");
+    }
+  }
+
   return (
     <div>
       <div className="mb-4 flex items-center gap-3">
-        <Link href="/enseignant" className="text-sm font-semibold text-slate-600 hover:text-slate-900">
+        <button
+          type="button"
+          onClick={goBack}
+          className="text-sm font-semibold text-slate-600 hover:text-slate-900"
+        >
           ← Retour
-        </Link>
+        </button>
         <div className="flex-1" />
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
           Consultation · lecture seule

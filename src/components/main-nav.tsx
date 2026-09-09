@@ -11,6 +11,13 @@ import { Button } from "@/components/ui/button";
 type NavLink = { href: string; label: string; show: boolean };
 export type Sections = ("primaire" | "secondaire")[];
 
+/** Section context for the current URL, if any. */
+function currentSectionFromPath(pathname: string): "primaire" | "secondaire" | undefined {
+  if (pathname.startsWith("/primaire")) return "primaire";
+  if (pathname.startsWith("/secondaire")) return "secondaire";
+  return undefined;
+}
+
 /**
  * Shared role-aware links used by both the desktop bar and the mobile drawer.
  *
@@ -22,22 +29,47 @@ export type Sections = ("primaire" | "secondaire")[];
 export function buildNavLinks(
   superAdmin: boolean,
   sections: Sections,
-  isAdmin: boolean
+  isAdmin: boolean,
+  currentSection?: "primaire" | "secondaire",
+  isTeacher = true
 ): NavLink[] {
-  const links: NavLink[] = [
-    { href: "/enseignant", label: "Mes fiches", show: true },
-  ];
+  const links: NavLink[] = [];
+  // "Mes fiches" = the teacher's own-fiches page. Super admin is not a
+  // teacher and should not see it (Comment 4).
+  if (isTeacher) {
+    links.push({ href: "/enseignant", label: "Mes fiches", show: true });
+  }
   if (isAdmin) {
-    links.push({ href: `/admin/branches`, label: "Branches", show: true });
-    links.push({ href: "/admin/suivi", label: "Suivi", show: true });
+    // Section-context links (one Structure + one Attributions for the CURRENT
+    // section; switching happens via the page-level "Voir" button).
+    const active =
+      currentSection && sections.includes(currentSection)
+        ? currentSection
+        : sections[0];
+    const sectionLinks: NavLink[] = active
+      ? [
+          { href: `/${active}/structure`, label: "Structure", show: true },
+          { href: `/${active}/attributions`, label: "Attributions", show: true },
+        ]
+      : [];
+
     if (superAdmin) {
-      links.push({ href: `/admin/calendrier`, label: "Calendrier", show: true });
-      links.push({ href: `/admin/utilisateurs`, label: "Utilisateurs", show: true });
-      links.push({ href: `/admin/annee`, label: "Année", show: true });
-    }
-    for (const s of sections) {
-      links.push({ href: `/${s}/structure`, label: s === "primaire" ? "Structure P." : "Structure S.", show: true });
-      links.push({ href: `/${s}/attributions`, label: s === "primaire" ? "Attributions P." : "Attributions S.", show: true });
+      // Super admin order (user-specified): Année, Calendrier, Utilisateurs,
+      // Branches, Structure, Attributions, Suivi.
+      links.push(
+        { href: `/admin/annee`, label: "Année", show: true },
+        { href: `/admin/calendrier`, label: "Calendrier", show: true },
+        { href: `/admin/utilisateurs`, label: "Utilisateurs", show: true },
+        { href: `/admin/branches`, label: "Branches", show: true },
+        ...sectionLinks,
+        { href: "/admin/suivi", label: "Suivi", show: true }
+      );
+    } else {
+      links.push(
+        { href: `/admin/branches`, label: "Branches", show: true },
+        { href: "/admin/suivi", label: "Suivi", show: true },
+        ...sectionLinks
+      );
     }
   }
   return links.filter((l) => l.show);
@@ -54,13 +86,15 @@ export function MainNav({
   superAdmin,
   isAdmin,
   sections,
+  isTeacher,
 }: {
   superAdmin: boolean;
   isAdmin: boolean;
   sections: Sections;
+  isTeacher: boolean;
 }) {
   const pathname = usePathname();
-  const links = buildNavLinks(superAdmin, sections, isAdmin);
+  const links = buildNavLinks(superAdmin, sections, isAdmin, currentSectionFromPath(pathname), isTeacher);
 
   return (
     <nav className="ml-2 hidden items-center gap-0.5 md:flex" aria-label="Navigation principale">
@@ -71,7 +105,7 @@ export function MainNav({
           className={cn(
             "rounded-md px-2 py-1 text-xs font-semibold transition-colors",
             isActive(pathname, l.href)
-              ? "bg-blue-50 text-blue-700"
+              ? "bg-primary/10 text-primary"
               : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
           )}
         >
@@ -90,15 +124,17 @@ export function MobileNav({
   superAdmin,
   isAdmin,
   sections,
+  isTeacher,
 }: {
   superAdmin: boolean;
   isAdmin: boolean;
   sections: Sections;
+  isTeacher: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const links = buildNavLinks(superAdmin, sections, isAdmin);
+  const links = buildNavLinks(superAdmin, sections, isAdmin, currentSectionFromPath(pathname), isTeacher);
 
   function go(href: string) {
     setOpen(false);
@@ -133,7 +169,7 @@ export function MobileNav({
           >
             <div className="flex h-14 items-center justify-between border-b border-slate-200 pl-4 pr-2">
               <span className="flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-700 text-white text-sm font-extrabold">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-extrabold">
                   S
                 </span>
                 <span className="text-sm font-bold text-slate-800">Prévisions Matières</span>
@@ -159,7 +195,7 @@ export function MobileNav({
                   className={cn(
                     "flex items-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
                     isActive(pathname, l.href)
-                      ? "bg-blue-50 text-blue-700"
+                      ? "bg-primary/10 text-primary"
                       : "text-slate-600 hover:bg-slate-100 hover:text-slate-800"
                   )}
                 >

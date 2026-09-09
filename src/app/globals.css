@@ -128,6 +128,49 @@
     @apply font-sans;
   }
 }
+
+/* ============ Section themes (GradeApp-style) ============
+   html[data-section="primaire"]  → Warm Sun  (amber/orange)
+   html[data-section="secondaire"] → Cool Blue (blue/cyan)
+   Applied by <SectionTheme /> from the user's section-admin scope. */
+html[data-section="primaire"] {
+  --primary: oklch(0.666 0.179 58.318);           /* amber-600 */
+  --primary-foreground: oklch(0.987 0.022 95.277); /* amber-50 */
+  --ring: oklch(0.828 0.189 84.429);              /* amber-500 */
+  --accent: oklch(0.987 0.014 91.361);            /* amber-100 */
+  --accent-foreground: oklch(0.47 0.157 37.304);  /* amber-800 */
+  --muted: oklch(0.987 0.022 95.277);             /* amber-50 */
+  --secondary: oklch(0.837 0.128 66.29);          /* orange-400 */
+  --secondary-foreground: oklch(0.987 0.022 95.277);
+}
+
+html[data-section="secondaire"] {
+  --primary: oklch(0.546 0.245 262.881);          /* blue-600 */
+  --primary-foreground: oklch(0.97 0.014 254.604);/* blue-50 */
+  --ring: oklch(0.623 0.214 259.815);             /* blue-500 */
+  --accent: oklch(0.97 0.014 254.604);            /* blue-50 */
+  --accent-foreground: oklch(0.488 0.243 264.376);/* blue-700 */
+  --muted: oklch(0.97 0.014 254.604);             /* blue-50 */
+  --secondary: oklch(0.715 0.143 215.221);        /* cyan-500 */
+  --secondary-foreground: oklch(0.985 0 0);
+}
+
+/* ============ Calendar week-selection frame (mockup Option B) ============
+   Continuous frame around the selected school week (Mon–Fri), section-themed
+   via --primary. First/mid/last classes assemble the frame across the cells. */
+.week-frame-first {
+  box-shadow: inset 2.5px 0 0 var(--primary), inset 0 2.5px 0 var(--primary), inset 0 -2.5px 0 var(--primary);
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+}
+.week-frame-mid {
+  box-shadow: inset 0 2.5px 0 var(--primary), inset 0 -2.5px 0 var(--primary);
+}
+.week-frame-last {
+  box-shadow: inset -2.5px 0 0 var(--primary), inset 0 2.5px 0 var(--primary), inset 0 -2.5px 0 var(--primary);
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
 /* ============ Print / Aperçu impression (paper-faithful) ============ */
 .print-root { background: #e9edf2; min-height: 100vh; }
 .preview-wrap { max-width: 1160px; margin: 0 auto; padding: 22px 16px 60px; display: flex; flex-direction: column; gap: 26px; align-items: center; }

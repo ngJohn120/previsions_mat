@@ -39,20 +39,26 @@ export default async function AttributionsPage({
 
   // Lookups: classes, branches, sous_branches, fiches statut, profiles
   const { data: classes } = await supabase.from("classes").select("id, name, section").eq("school_year_id", yearId);
-  const { data: branches } = await supabase.from("branches").select("id, name");
+  const { data: branches } = await supabase.from("branches").select("id, name, sections");
   const { data: sous } = await supabase.from("sous_branches").select("id, name, branche_id");
   const { data: fiches } = await supabase.from("fiches").select("id, attribution_id, statut");
+  // No FK between user_roles and profiles, so fetch roles then names separately
   const { data: teacherRoles } = await supabase
     .from("user_roles")
-    .select("user_id, role, section, profile:profiles!inner(full_name)")
+    .select("user_id, role, section")
     .eq("role", "enseignant")
     .eq("section", section);
+  const teacherIds = [...new Set((teacherRoles ?? []).map((t: { user_id: string }) => t.user_id))];
+  const { data: teacherProfiles } = teacherIds.length
+    ? await supabase.from("profiles").select("id, full_name").in("id", teacherIds)
+    : { data: [] };
+  const teacherNameById = new Map((teacherProfiles ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name]));
 
   const classById = new Map((classes ?? []).map((c: any) => [c.id, c]));
   const branchById = new Map((branches ?? []).map((b: any) => [b.id, b.name]));
   const sousById = new Map((sous ?? []).map((s: any) => [s.id, s.name]));
   const ficheByAttr = new Map((fiches ?? []).map((f: any) => [f.attribution_id, f.statut]));
-  const teacherById = new Map((teacherRoles ?? []).map((t: any) => [t.user_id, t.profile?.full_name ?? "—"]));
+  const teacherById = new Map((teacherRoles ?? []).map((t: { user_id: string }) => [t.user_id, teacherNameById.get(t.user_id) ?? "—"]));
 
   const items = (attrs ?? []).map((a: any) => ({
     id: a.id,
@@ -68,7 +74,7 @@ export default async function AttributionsPage({
   const classOptions = (classes ?? []).filter((c: any) => c.section === section).map((c: any) => ({ id: c.id, name: c.name }));
   const branchOptions = (branches ?? []).filter((b: any) => (b.sections ?? []).includes(section)).map((b: any) => ({ id: b.id, name: b.name }));
   const sousOptions = (sous ?? []).filter((s: any) => branchOptions.some((b: any) => b.id === s.branche_id)).map((s: any) => ({ id: s.id, name: s.name, branche_id: s.branche_id }));
-  const teacherOptions = (teacherRoles ?? []).map((t: any) => ({ id: t.user_id, full_name: t.profile?.full_name ?? "—" }));
+  const teacherOptions = (teacherRoles ?? []).map((t: { user_id: string }) => ({ id: t.user_id, full_name: teacherNameById.get(t.user_id) ?? "—" }));
 
   return (
     <AttributionsManager

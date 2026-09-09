@@ -1,10 +1,11 @@
 import { cookies } from "next/headers";
-import { getSessionUser, isSuperAdmin, isSectionAdmin } from "@/lib/auth";
+import { getSessionUser, isSuperAdmin, isSectionAdmin, isEnseignant } from "@/lib/auth";
 import { getActiveSchoolYear, listSchoolYears } from "@/lib/school-year";
 import { SchoolYearSwitcher } from "@/components/school-year-switcher";
 import { OfflineGuard } from "@/components/sync/offline-guard";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { MainNav, MobileNav, type Sections } from "@/components/main-nav";
+import { SectionTheme } from "@/components/section-theme";
 import { UserMenu } from "@/components/user-menu";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -43,14 +44,19 @@ export default async function AppLayout({
     years.find((y) => y.id === cookieYear) ?? activeYear ?? years[0] ?? null;
 
   const superAdmin = isSuperAdmin(user.roles);
-  const adminSections: Sections = [
-    ...(isSectionAdmin(user.roles, "primaire") ? ["primaire" as const] : []),
-    ...(isSectionAdmin(user.roles, "secondaire") ? ["secondaire" as const] : []),
-  ];
+  // Super admin administers both sections (same rule as lib/auth.adminSections)
+  const adminSections: Sections = superAdmin
+    ? ["primaire", "secondaire"]
+    : [
+        ...(isSectionAdmin(user.roles, "primaire") ? ["primaire" as const] : []),
+        ...(isSectionAdmin(user.roles, "secondaire") ? ["secondaire" as const] : []),
+      ];
   const isAdmin = superAdmin || adminSections.length > 0;
+  const isTeacher = isEnseignant(user.roles);
 
   return (
     <div className="min-h-screen bg-slate-100">
+      <SectionTheme />
       <OfflineGuard />
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white print:hidden">
         <div className="flex h-14 items-center gap-1 px-3 sm:gap-2 sm:px-6">
@@ -58,9 +64,10 @@ export default async function AppLayout({
             isAdmin={isAdmin}
             superAdmin={superAdmin}
             sections={adminSections}
+            isTeacher={isTeacher}
           />
           <Link href="/" className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-700 text-white text-sm font-extrabold">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-extrabold">
               S
             </span>
             <span className="hidden text-sm font-bold text-slate-800 sm:inline">
@@ -71,6 +78,7 @@ export default async function AppLayout({
             isAdmin={isAdmin}
             superAdmin={superAdmin}
             sections={adminSections}
+            isTeacher={isTeacher}
           />
           <div className="flex-1" />
           {currentYear && (

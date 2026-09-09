@@ -41,6 +41,11 @@ export function BranchesManager({ branches, canManage, scope }: { branches: Bran
   const canPrim = scope.includes("primaire");
   const canSec = scope.includes("secondaire");
   const multiSection = canPrim && canSec;
+  // Sous-branches exist only for primaire subjects.
+  // - Section admin: visible iff they manage primaire (scope-based).
+  // - Super admin: visible iff "Primaire" is checked (checkbox-based, live).
+  const isSuper = multiSection; // super admin = both sections in scope
+  const allowSousBranches = isSuper ? usePrim : canPrim;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -79,7 +84,9 @@ export function BranchesManager({ branches, canManage, scope }: { branches: Bran
     if (usePrim && canPrim) sections.push("primaire");
     if (useSec && canSec) sections.push("secondaire");
     if (!sections.length) { setError("Sélectionnez au moins une section."); setBusy(false); return; }
-    const names = sousBranches.map((s) => s.trim()).filter(Boolean);
+    const names = allowSousBranches
+      ? sousBranches.map((s) => s.trim()).filter(Boolean)
+      : []; // block hidden ⇒ no primaire side ⇒ no sous-branches
     const res = edit
       ? await updateBranche({ id: edit.id, name, sections, sous_branches: names })
       : await createBranche({ name, sections, sous_branches: names });
@@ -191,18 +198,26 @@ export function BranchesManager({ branches, canManage, scope }: { branches: Bran
               </div>
               {!multiSection && <p className="mt-1 text-xs text-slate-400">Section fixée pour votre compte admin.</p>}
             </div>
-            <div>
-              <Label>Sous-branches (optionnel)</Label>
-              <div className="mt-1 space-y-2">
-                {sousBranches.map((sb, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <Input value={sb} onChange={(e) => setSousBranches((arr) => arr.map((x, idx) => idx === i ? e.target.value : x))} placeholder="Ex. Grammaire" />
-                    <Button variant="ghost" size="sm" onClick={() => setSousBranches((arr) => arr.filter((_, idx) => idx !== i))}>✕</Button>
-                  </div>
-                ))}
+            {allowSousBranches && (
+              <div>
+                <div className="flex items-center justify-between">
+                  <Label>Sous-branches (optionnel)</Label>
+                  <span className="text-xs text-slate-400">{sousBranches.length}</span>
+                </div>
+                <div className="mt-1 max-h-56 space-y-2 overflow-y-auto pr-1">
+                  {sousBranches.map((sb, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <Input value={sb} onChange={(e) => setSousBranches((arr) => arr.map((x, idx) => idx === i ? e.target.value : x))} placeholder="Ex. Grammaire" />
+                      <Button variant="ghost" size="sm" onClick={() => setSousBranches((arr) => arr.filter((_, idx) => idx !== i))}>✕</Button>
+                    </div>
+                  ))}
+                  {sousBranches.length === 0 && (
+                    <p className="py-2 text-center text-xs text-slate-400">Aucune sous-branche</p>
+                  )}
+                </div>
+                <Button variant="outline" size="sm" className="mt-2" onClick={() => setSousBranches((arr) => [...arr, ""])}>+ Ajouter une sous-branche</Button>
               </div>
-              <Button variant="outline" size="sm" className="mt-2" onClick={() => setSousBranches((arr) => [...arr, ""])}>+ Ajouter une sous-branche</Button>
-            </div>
+            )}
             {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
           </div>
           <DialogFooter>
