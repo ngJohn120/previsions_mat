@@ -156,14 +156,17 @@ as $$
   );
 $$;
 
--- row-local judge: takes the row's own fiche_id value directly.
+-- row-local judge: takes the row's own fiche_id value directly, then defers to
+-- the fiche-level judge (which joins fiches -> attributions -> classes; the
+-- fiche is a different table and already committed when rows are written, so
+-- this stays snapshot-safe for INSERT ... RETURNING).
 create or replace function public.can_access_fiche_row_by_fiche(
   p_fiche_id uuid
 )
 returns boolean
 language sql stable security definer set search_path = public
 as $$
-  select public.can_access_fiche_values(p_fiche_id);
+  select public.can_access_fiche(p_fiche_id);
 $$;
 
 drop policy if exists "fiche_rows_select_access" on public.fiche_rows;

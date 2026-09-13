@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser, isSuperAdmin, isSectionAdmin } from "@/lib/auth";
 import { validateClassesCsv, type CsvRow } from "@/lib/csv";
+import { isRosterMember } from "@/lib/roster";
 
 type Result = { error?: string };
 export type ImportResult = { created: number; errors: string[] };
@@ -17,6 +18,24 @@ async function requireStructureAccess(section: "primaire" | "secondaire") {
     redirect("/");
   }
   return user;
+}
+
+/** Reject teachers who are not on the year's roster (null titulaire passes). */
+async function checkTitulaireRoster(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  titulaireId: string | null | undefined,
+  schoolYearId: string,
+  section: "primaire" | "secondaire"
+): Promise<string | null> {
+  if (!titulaireId) return null;
+  const member = await isRosterMember(supabase, {
+    userId: titulaireId,
+    schoolYearId,
+    section,
+  });
+  return member
+    ? null
+    : "Ce titulaire ne fait pas partie de l'année sélectionnée.";
 }
 
 export async function createClass(input: {
@@ -32,6 +51,13 @@ export async function createClass(input: {
     return { error: "Le nom et le niveau de la classe sont obligatoires." };
   }
   const supabase = await createClient();
+  const rosterErr = await checkTitulaireRoster(
+    supabase,
+    input.titulaire_id,
+    input.school_year_id,
+    input.section
+  );
+  if (rosterErr) return { error: rosterErr };
   const { error } = await supabase.from("classes").insert({
     school_year_id: input.school_year_id,
     section: input.section,
@@ -56,6 +82,20 @@ export async function updateClass(input: {
 }): Promise<Result> {
   await requireStructureAccess(input.section);
   const supabase = await createClient();
+  // The year's id lives on the row being updated — read it for the roster check.
+  const { data: existing } = await supabase
+    .from("classes")
+    .select("school_year_id")
+    .eq("id", input.id)
+    .maybeSingle();
+  if (!existing) return { error: "Classe introuvable. Rechargez la page et réessayez." };
+  const rosterErr = await checkTitulaireRoster(
+    supabase,
+    input.titulaire_id,
+    existing.school_year_id,
+    input.section
+  );
+  if (rosterErr) return { error: rosterErr };
   const { error } = await supabase
     .from("classes")
     .update({
@@ -107,6 +147,11 @@ export async function importClassesCsv(
       titulaireId = emailToId.get(c.titulaire_email) ?? null;
       if (!titulaireId) {
         errors.push(`Ligne : « ${c.name} » — titulaire introuvable (${c.titulaire_email})`);
+        continue;
+      }
+      const rosterErr = await checkTitulaireRoster(supabase, titulaireId, yearId, section);
+      if (rosterErr) {
+        errors.push(`Ligne : « ${c.name} » — ${rosterErr}`);
         continue;
       }
     }

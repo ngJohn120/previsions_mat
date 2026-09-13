@@ -29,7 +29,7 @@ function statutChip(statut: string | null) {
 }
 
 export function AttributionsManager({
-  section, yearId, yearLabel, items, classOptions, branchOptions, sousOptions, teacherOptions, canManage, superAdmin,
+  section, yearId, yearLabel, items, classOptions, branchOptions, sousOptions, teacherOptions, orphanAttrIds, canManage, superAdmin,
 }: {
   section: string;
   yearId: string;
@@ -39,6 +39,7 @@ export function AttributionsManager({
   branchOptions: Option[];
   sousOptions: Option[]; // {id,name,branche_id}
   teacherOptions: TeacherOption[];
+  orphanAttrIds?: string[];
   canManage: boolean;
   superAdmin: boolean;
 }) {
@@ -69,10 +70,17 @@ export function AttributionsManager({
       sous_branche_id: sousId || null,
       enseignant_id: enseignantId,
     };
-    const res = edit
-      ? await updateAttribution({ id: edit.id, ...payload })
-      : await createAttribution({ school_year_id: yearId, ...payload });
-    if (res.error) { setError(res.error); setBusy(false); return; }
+    // A throwing action (transport/RSC failure) must release the dialog
+    // instead of spinning forever — surface it as a plain error.
+    try {
+      const res = edit
+        ? await updateAttribution({ id: edit.id, ...payload })
+        : await createAttribution({ school_year_id: yearId, ...payload });
+      if (res.error) { setError(res.error); setBusy(false); return; }
+    } catch {
+      setError("La requête n'a pas abouti. Vérifiez si la modification a été enregistrée, puis réessayez.");
+      setBusy(false); return;
+    }
     setOpen(false); setBusy(false); router.refresh();
   }
 
@@ -116,12 +124,14 @@ export function AttributionsManager({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {items.map((a) => (
-              <tr key={a.id} className="hover:bg-slate-50">
+            {items.map((a) => {
+              const orphan = (orphanAttrIds ?? []).includes(a.id);
+              return (
+              <tr key={a.id} className={orphan ? "bg-red-50 hover:bg-red-100/60" : "hover:bg-slate-50"}>
                 <td className="px-4 py-3 font-semibold text-slate-800">{a.classe}</td>
                 <td className="px-4 py-3">{a.branche}</td>
                 <td className="px-4 py-3 text-slate-500">{a.sous_branche ?? "—"}</td>
-                <td className="px-4 py-3">{a.enseignant}</td>
+                <td className={`px-4 py-3 ${orphan ? "font-bold text-red-700" : ""}`}>{a.enseignant}</td>
                 <td className="px-4 py-3">{statutChip(a.statut)}</td>
                 {canManage && (
                   <td className="px-4 py-3 text-right">
@@ -132,7 +142,8 @@ export function AttributionsManager({
                   </td>
                 )}
               </tr>
-            ))}
+              );
+            })}
             {items.length === 0 && (
               <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Aucune attribution · {sectionLabel}. Cliquez « Nouvelle attribution ».</td></tr>
             )}
@@ -169,6 +180,9 @@ export function AttributionsManager({
             <div>
               <Label>Enseignant</Label>
               <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={enseignantId} onChange={(e) => setEnseignantId(e.target.value)}>
+                {edit && enseignantId === "" && (
+                  <option value="" disabled>Actuel : {edit.enseignant} (hors poste) — choisissez un remplaçant</option>
+                )}
                 {teacherOptions.map((t) => <option key={t.id} value={t.id}>{t.full_name}</option>)}
               </select>
             </div>

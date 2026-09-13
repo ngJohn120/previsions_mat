@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Variante C — Génération duo Primaire/Secondaire (maquette)</title>
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  .duo { display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:start; }
+  @media (max-width: 900px) { .duo { grid-template-columns:1fr; } }
+  .sec-prim { border-top:3px solid var(--amber, #d97706); }
+  .sec-second { border-top:3px solid var(--primary-strong); }
+  .field input, .field select { border:1px solid var(--border-strong); border-radius:6px; padding:7px 10px; font-size:13px; background:var(--surface); width:100%; }
+  .ev-row { display:grid; grid-template-columns:1fr 120px 115px 115px 28px; gap:6px; align-items:end; margin-bottom:8px; }
+  .ev-row input, .ev-row select { border:1px solid var(--border-strong); border-radius:6px; padding:6px 7px; font-size:12px; background:var(--surface); width:100%; }
+  .icon-del { border:1px solid #e6b8b8; background:var(--surface); color:var(--danger); border-radius:6px; width:26px; height:29px; cursor:pointer; font-size:13px; }
+  .shared { border:1px dashed var(--border-strong); border-radius:var(--radius); background:var(--surface); padding:14px 16px; }
+  .sum { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .var-links { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  .sec-tag { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.6px; }
+  .tag-p { color:#b45309; } .tag-s { color:var(--primary-strong); }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="nav-scrim" onclick="document.body.classList.remove('nav-open')"></div>
+  <aside class="sidebar">
+    <div class="side-logo"><div class="crest">S</div><div><div class="name">Prévisions Matières</div><div class="sub">Complexe Scolaire SILOE</div></div></div>
+    <nav class="side-nav" id="sideNav"></nav>
+    <div class="side-foot"><div class="user-box"><div class="avatar">DN</div><div><div class="u-name">Direction SILOE</div><div class="u-role">Super admin</div></div></div></div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" onclick="document.body.classList.add('nav-open')" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+      <div class="page-title">Générer les calendriers — 2026 – 2027</div>
+      <div class="spacer"></div>
+      <span class="year-chip">2026 – 2027</span>
+      <div class="user-box"><div class="avatar">DN</div><div><div class="u-name">Direction SILOE</div><div class="u-role">Super admin</div></div></div>
+    </header>
+
+    <div class="content">
+      <div class="var-links">
+        <a class="btn btn-sm btn-ghost" href="17-generation-assistant.html" style="text-decoration:none">Voir variante A (Assistant)</a>
+        <a class="btn btn-sm btn-ghost" href="18-generation-studio.html" style="text-decoration:none">Voir variante B (Studio)</a>
+        <span class="chip chip-soumis"><span class="dot"></span> Variante C — Duo P/S</span>
+      </div>
+
+      <div class="shared" style="margin-bottom:14px">
+        <h3 style="margin:0 0 4px">Vacances communes <span class="demo-note">(appliquées aux deux sections)</span></h3>
+        <div id="sharedList">
+          <div class="ev-row">
+            <input value="Vacances de Noël">
+            <select><option>vacances</option><option>détente</option></select>
+            <input type="date" value="2026-12-21"><input type="date" value="2027-01-09">
+            <button class="icon-del" onclick="this.closest('.ev-row').remove();live()" title="Supprimer">×</button>
+          </div>
+        </div>
+        <button class="btn btn-sm btn-ghost" onclick="addShared()">+ Ajouter des vacances communes</button>
+      </div>
+
+      <div class="duo">
+        <div class="card card-pad sec-prim">
+          <div class="sec-tag tag-p">● Primaire</div>
+          <h3 style="margin:4px 0 10px">Paramètres & événements</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+            <div class="field"><label>Rentrée</label><input type="date" value="2026-09-01" id="rP" oninput="live()"></div>
+            <div class="field"><label>Fin d'année</label><input type="date" value="2027-07-02" id="fP" oninput="live()"></div>
+          </div>
+          <div id="evP">
+            <div class="ev-row">
+              <input value="1re évaluation" oninput="live()">
+              <select onchange="live()"><option>évaluation</option><option>vacances</option><option>examen</option><option>révision</option><option>détente</option></select>
+              <input type="date" value="2026-10-26"><input type="date" value="2026-10-31">
+              <button class="icon-del" onclick="this.closest('.ev-row').remove();live()">×</button>
+            </div>
+            <div class="ev-row">
+              <input value="Examens 1er trimestre" oninput="live()">
+              <select onchange="live()"><option>examen</option><option>vacances</option><option>évaluation</option><option>révision</option><option>détente</option></select>
+              <input type="date" value="2027-02-09"><input type="date" value="2027-02-17">
+              <button class="icon-del" onclick="this.closest('.ev-row').remove();live()">×</button>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-ghost" onclick="addEv('evP')">+ Ajouter (Primaire)</button>
+          <div class="hint" style="margin-top:10px"><strong id="sumP">44 semaines · 3 événements</strong> <span class="demo-note">(dont 1 commun)</span> → v4 brouillon (v3 active conservée).</div>
+        </div>
+
+        <div class="card card-pad sec-second">
+          <div class="sec-tag tag-s">● Secondaire</div>
+          <h3 style="margin:4px 0 10px">Paramètres & événements</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+            <div class="field"><label>Rentrée</label><input type="date" value="2026-09-07" id="rS" oninput="live()"></div>
+            <div class="field"><label>Fin d'année</label><input type="date" value="2027-07-02" id="fS" oninput="live()"></div>
+          </div>
+          <div id="evS">
+            <div class="ev-row">
+              <input value="1re évaluation" oninput="live()">
+              <select onchange="live()"><option>évaluation</option><option>vacances</option><option>examen</option><option>révision</option><option>détente</option></select>
+              <input type="date" value="2026-11-02"><input type="date" value="2026-11-07">
+              <button class="icon-del" onclick="this.closest('.ev-row').remove();live()">×</button>
+            </div>
+            <div class="ev-row">
+              <input value="Examens semestriels" oninput="live()">
+              <select onchange="live()"><option>examen</option><option>vacances</option><option>évaluation</option><option>révision</option><option>détente</option></select>
+              <input type="date" value="2027-01-18"><input type="date" value="2027-01-29">
+              <button class="icon-del" onclick="this.closest('.ev-row').remove();live()">×</button>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-ghost" onclick="addEv('evS')">+ Ajouter (Secondaire)</button>
+          <div class="hint" style="margin-top:10px"><strong id="sumS">43 semaines · 3 événements</strong> <span class="demo-note">(dont 1 commun)</span> → v4 brouillon (v3 active conservée).</div>
+        </div>
+      </div>
+
+      <div class="card card-pad" style="margin-top:14px">
+        <div class="sum">
+          <div><strong>Génération groupée :</strong> <span class="demo-note">les deux calendriers sont créés en brouillon, chacun active sa v4 séparément plus tard.</span></div>
+          <span style="flex:1"></span>
+          <button class="btn btn-ghost" onclick="alert('Maquette : aperçu comparatif (grille des deux sections).')">Comparer les grilles</button>
+          <button class="btn btn-success" onclick="alert('Maquette : génération simulée (v4 brouillon × 2).')">Générer les deux calendriers</button>
+        </div>
+      </div>
+
+      <div style="height:14px"></div>
+      <div class="demo-note"><strong>Variante C :</strong> les deux sections côte à côte avec vacances communes partagées — une seule opération pour toute l'école, rythmes P/S indépendants.</div>
+    </div>
+  </div>
+</div>
+<script>
+  const NAV = [
+    { href:"#", label:"Année" }, { href:"10-calendrier.html", label:"Calendrier", active:true },
+    { href:"06-gestion-utilisateurs.html", label:"Utilisateurs" }, { href:"08-matieres-sous-branches.html", label:"Branches" },
+    { href:"07-structure.html", label:"Structure" }, { href:"09-affectations.html", label:"Attributions" },
+    { href:"#", label:"Suivi" }, { href:"15-revision.html", label:"Révision" },
+  ];
+  document.getElementById('sideNav').innerHTML = '<div class="nav-section">Administration</div>' +
+    NAV.map((l) => `<a class="nav-item${l.active ? ' active' : ''}" href="${l.href}"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> ${l.label}</a>`).join('');
+  function weeksBetween(r, f) {
+    if (!r || !f) return null;
+    const d0 = new Date(r + 'T12:00:00'), d1 = new Date(f + 'T12:00:00');
+    let d = 0; const c = new Date(d0);
+    while (c <= d1 && d < 2000) { const wd = c.getDay(); if (wd >= 1 && wd <= 5) d++; c.setDate(c.getDate() + 1); }
+    return d > 0 ? Math.max(1, Math.round(d / 5)) : null;
+  }
+  function live() {
+    const shared = document.querySelectorAll('#sharedList .ev-row').length;
+    const wP = weeksBetween(document.getElementById('rP').value, document.getElementById('fP').value) ?? 43;
+    const wS = weeksBetween(document.getElementById('rS').value, document.getElementById('fS').value) ?? 42;
+    const nP = document.querySelectorAll('#evP .ev-row').length + shared;
+    const nS = document.querySelectorAll('#evS .ev-row').length + shared;
+    document.getElementById('sumP').textContent = `${wP} semaines · ${nP} événements`;
+    document.getElementById('sumS').textContent = `${wS} semaines · ${nS} événements`;
+  }
+  const TYPES = ['vacances','évaluation','examen','révision','détente'];
+  function evRowHTML() {
+    return `<input placeholder="Libellé" oninput="live()">
+      <select onchange="live()">${TYPES.map((t) => `<option>${t}</option>`).join('')}</select>
+      <input type="date"><input type="date">
+      <button class="icon-del" onclick="this.closest('.ev-row').remove();live()">×</button>`;
+  }
+  function addEv(id) { const d = document.createElement('div'); d.className = 'ev-row'; d.innerHTML = evRowHTML(); document.getElementById(id).appendChild(d); live(); }
+  function addShared() { const d = document.createElement('div'); d.className = 'ev-row'; d.innerHTML = evRowHTML(); document.getElementById('sharedList').appendChild(d); live(); }
+  live();
+</script>
+<div class="mock-flag">MAQUETTE · NON FONCTIONNELLE</div>
+</body>
+</html>

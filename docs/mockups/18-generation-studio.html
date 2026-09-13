@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Variante B — Studio de génération (maquette)</title>
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  .studio { display:grid; grid-template-columns:1fr 380px; gap:14px; align-items:start; }
+  @media (max-width: 1020px) { .studio { grid-template-columns:1fr; } }
+  .field input, .field select { border:1px solid var(--border-strong); border-radius:6px; padding:7px 10px; font-size:13px; background:var(--surface); width:100%; }
+  .ev-row { display:grid; grid-template-columns:1fr 130px 125px 125px 30px; gap:7px; align-items:end; margin-bottom:8px; }
+  @media (max-width: 640px) { .ev-row { grid-template-columns:1fr 1fr; } }
+  .ev-row input, .ev-row select { border:1px solid var(--border-strong); border-radius:6px; padding:6px 8px; font-size:12.5px; background:var(--surface); width:100%; }
+  .icon-del { border:1px solid #e6b8b8; background:var(--surface); color:var(--danger); border-radius:6px; width:28px; height:30px; cursor:pointer; font-size:14px; }
+  .preview { position:sticky; top:70px; }
+  .stat-row { display:flex; gap:8px; margin:10px 0; }
+  .stat { flex:1; border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px; text-align:center; }
+  .stat .v { font-size:18px; font-weight:800; }
+  .stat .l { font-size:11px; color:var(--text-2); }
+  .mini-cal { display:grid; grid-template-columns:repeat(7, 1fr); gap:2px; font-size:10px; text-align:center; }
+  .mini-cal .d { padding:4px 0; border-radius:4px; background:var(--surface-2); color:var(--text-2); }
+  .mini-cal .d.course { background:#e8effc; color:#1d4ed8; font-weight:700; }
+  .mini-cal .d.ev-vacances { background:#e7f5ec; color:#15803d; font-weight:700; }
+  .mini-cal .d.ev-evaluation { background:#f1eafd; color:#7c3aed; font-weight:700; }
+  .mini-cal .d.ev-examen { background:#fdeaea; color:#c81e1e; font-weight:700; }
+  .mini-cal .hd { font-weight:800; color:var(--text-3); background:none; }
+  .ev-legend { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .var-links { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="nav-scrim" onclick="document.body.classList.remove('nav-open')"></div>
+  <aside class="sidebar">
+    <div class="side-logo"><div class="crest">S</div><div><div class="name">Prévisions Matières</div><div class="sub">Complexe Scolaire SILOE</div></div></div>
+    <nav class="side-nav" id="sideNav"></nav>
+    <div class="side-foot"><div class="user-box"><div class="avatar">DN</div><div><div class="u-name">Direction SILOE</div><div class="u-role">Super admin</div></div></div></div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" onclick="document.body.classList.add('nav-open')" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+      <div class="page-title">Générer le calendrier — Primaire</div>
+      <div class="spacer"></div>
+      <span class="year-chip">2026 – 2027</span>
+      <div class="user-box"><div class="avatar">DN</div><div><div class="u-name">Direction SILOE</div><div class="u-role">Super admin</div></div></div>
+    </header>
+
+    <div class="content">
+      <div class="var-links">
+        <a class="btn btn-sm btn-ghost" href="17-generation-assistant.html" style="text-decoration:none">Voir variante A (Assistant)</a>
+        <span class="chip chip-soumis"><span class="dot"></span> Variante B — Studio une page</span>
+        <a class="btn btn-sm btn-ghost" href="19-generation-duo.html" style="text-decoration:none">Voir variante C (Duo P/S)</a>
+      </div>
+
+      <div class="studio">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="card card-pad">
+            <h3 style="margin:0 0 10px">1 · Paramètres</h3>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div class="field"><label>Année scolaire</label><input value="2026 – 2027" disabled></div>
+              <div class="field"><label>Section</label><select><option>Primaire</option><option>Secondaire</option></select></div>
+              <div class="field"><label>Rentrée (premier lundi)</label><input type="date" value="2026-09-01" id="rentree" oninput="live()"></div>
+              <div class="field"><label>Fin d'année (dernier vendredi)</label><input type="date" value="2027-07-02" id="fin" oninput="live()"></div>
+            </div>
+          </div>
+
+          <div class="card card-pad">
+            <h3 style="margin:0 0 4px">2 · Événements</h3>
+            <p class="demo-note" style="margin:0 0 10px">Lignes structurées — plus de format texte à deviner.</p>
+            <div id="evList">
+              <div class="ev-row" data-type="vacances" data-label="Vacances de Noël">
+                <input value="Vacances de Noël" oninput="live()">
+                <select onchange="live()"><option>vacances</option><option>évaluation</option><option>examen</option><option>révision</option><option>détente</option></select>
+                <input type="date" value="2026-12-21"><input type="date" value="2027-01-09">
+                <button class="icon-del" onclick="this.closest('.ev-row').remove();live()" title="Supprimer">×</button>
+              </div>
+              <div class="ev-row" data-type="evaluation" data-label="1re évaluation">
+                <input value="1re évaluation" oninput="live()">
+                <select onchange="live()"><option>évaluation</option><option>vacances</option><option>examen</option><option>révision</option><option>détente</option></select>
+                <input type="date" value="2026-10-26"><input type="date" value="2026-10-31">
+                <button class="icon-del" onclick="this.closest('.ev-row').remove();live()" title="Supprimer">×</button>
+              </div>
+              <div class="ev-row" data-type="examen" data-label="Examens 1er trimestre">
+                <input value="Examens 1er trimestre" oninput="live()">
+                <select onchange="live()"><option>examen</option><option>vacances</option><option>évaluation</option><option>révision</option><option>détente</option></select>
+                <input type="date" value="2027-02-09"><input type="date" value="2027-02-17">
+                <button class="icon-del" onclick="this.closest('.ev-row').remove();live()" title="Supprimer">×</button>
+              </div>
+            </div>
+            <button class="btn btn-sm btn-ghost" onclick="addEv()">+ Ajouter un événement</button>
+          </div>
+
+          <div class="card card-pad">
+            <h3 style="margin:0 0 4px">3 · Générer</h3>
+            <div class="hint">Crée la <strong>version 4 (brouillon)</strong> — la v3 active reste en place jusqu'à activation.</div>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <button class="btn btn-success" onclick="alert('Maquette : génération simulée (v4 brouillon).')">Générer le calendrier</button>
+              <a class="btn btn-ghost" href="10-calendrier.html" style="text-decoration:none">Retour au calendrier</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="card card-pad preview">
+          <h3 style="margin:0">Aperçu en direct</h3>
+          <div class="stat-row">
+            <div class="stat"><div class="v" id="stWeeks">43</div><div class="l">semaines</div></div>
+            <div class="stat"><div class="v" id="stDays">215</div><div class="l">jours de cours</div></div>
+            <div class="stat"><div class="v" id="stEv">3</div><div class="l">événements</div></div>
+          </div>
+          <div class="demo-note" style="margin-bottom:6px">Octobre 2026 — extrait</div>
+          <div class="mini-cal" id="miniCal"></div>
+          <div class="ev-legend" id="evLegend"></div>
+        </div>
+      </div>
+
+      <div style="height:14px"></div>
+      <div class="demo-note"><strong>Variante B :</strong> tout sur une page, aperçu recalculé à chaque frappe — dense, rapide pour les habitués.</div>
+    </div>
+  </div>
+</div>
+<script>
+  const NAV = [
+    { href:"#", label:"Année" }, { href:"10-calendrier.html", label:"Calendrier", active:true },
+    { href:"06-gestion-utilisateurs.html", label:"Utilisateurs" }, { href:"08-matieres-sous-branches.html", label:"Branches" },
+    { href:"07-structure.html", label:"Structure" }, { href:"09-affectations.html", label:"Attributions" },
+    { href:"#", label:"Suivi" }, { href:"15-revision.html", label:"Révision" },
+  ];
+  document.getElementById('sideNav').innerHTML = '<div class="nav-section">Administration</div>' +
+    NAV.map((l) => `<a class="nav-item${l.active ? ' active' : ''}" href="${l.href}"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> ${l.label}</a>`).join('');
+
+  const TYPE_CLASS = { 'vacances':'ev-vacances', 'évaluation':'ev-evaluation', 'evaluation':'ev-evaluation', 'examen':'ev-examen', 'révision':'ev-examen', 'détente':'ev-evaluation' };
+  function live() {
+    // weeks between rentree..fin (Mon–Fri only)
+    let weeks = 43, days = 215;
+    const r = document.getElementById('rentree').value, f = document.getElementById('fin').value;
+    if (r && f) {
+      const d0 = new Date(r + 'T12:00:00'), d1 = new Date(f + 'T12:00:00');
+      let d = 0; const c = new Date(d0);
+      while (c <= d1 && d < 2000) { const wd = c.getDay(); if (wd >= 1 && wd <= 5) d++; c.setDate(c.getDate() + 1); }
+      if (d > 0) { days = d; weeks = Math.max(1, Math.round(d / 5)); }
+    }
+    const rows = [...document.querySelectorAll('#evList .ev-row')];
+    rows.forEach((row) => {
+      const label = row.querySelector('input').value || '(sans libellé)';
+      row.dataset.label = label; row.dataset.type = row.querySelector('select').value;
+    });
+    document.getElementById('stWeeks').textContent = weeks;
+    document.getElementById('stDays').textContent = days;
+    document.getElementById('stEv').textContent = rows.length;
+    document.getElementById('evLegend').innerHTML = rows.map((row) =>
+      `<span class="chip" style="background:var(--surface-2);color:var(--text-2)"><span class="dot" style="background:currentColor"></span>${row.dataset.label} · ${row.dataset.type}</span>`).join('') || '<span class="demo-note">Aucun événement.</span>';
+    // static October 2026 strip with the evaluation week tinted
+    const hasEval = rows.some((row) => row.dataset.type.includes('valuation'));
+    let html = ['L','M','M','J','V','S','D'].map((d) => `<div class="d hd">${d}</div>`).join('');
+    for (let day = 1; day <= 31; day++) {
+      const wd = new Date(2026, 9, day).getDay();
+      let cls = 'd';
+      if (wd >= 1 && wd <= 5) cls += ' course';
+      if (hasEval && day >= 26 && day <= 31 && wd >= 1 && wd <= 5) cls += ' ev-evaluation';
+      if (day === 26 && rows.some((row) => row.dataset.type === 'vacances')) cls += ' ev-vacances';
+      html += `<div class="${cls}">${day}</div>`;
+    }
+    document.getElementById('miniCal').innerHTML = html;
+  }
+  function addEv() {
+    const d = document.createElement('div');
+    d.className = 'ev-row';
+    d.innerHTML = `<input placeholder="Ex. Vacances de Pâques" oninput="live()">
+      <select onchange="live()"><option>vacances</option><option>évaluation</option><option>examen</option><option>révision</option><option>détente</option></select>
+      <input type="date"><input type="date">
+      <button class="icon-del" onclick="this.closest('.ev-row').remove();live()" title="Supprimer">×</button>`;
+    document.getElementById('evList').appendChild(d);
+    live();
+  }
+  live();
+</script>
+<div class="mock-flag">MAQUETTE · NON FONCTIONNELLE</div>
+</body>
+</html>

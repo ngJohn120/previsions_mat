@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildWeeks, generateRowsForSection, monthLabel, shortDateLabel,
-  renumberRows, resequenceWeeks, shiftDateLabel,
+  renumberRows, resequenceWeeks, shiftDateLabel, parseEventDate,
   nextMondayAfter, mondayOfWeek, computeInsertWeek, computeInsertEventDate,
   applyInsertWeek, applyDeleteRow, applyShift, applyManualDates,
   type EditRow,
@@ -199,5 +199,29 @@ describe("calendar editing helpers", () => {
     }
     const bad = applyManualDates(rows, "b", new Date(2026, 9, 5), new Date(2026, 9, 2));
     expect("error" in bad).toBe(true);
+  });
+});
+
+describe("parseEventDate", () => {
+  it("parses wizard ISO dates as local days (no UTC shift)", () => {
+    const d = parseEventDate("2027-10-05");
+    expect(d?.getFullYear()).toBe(2027);
+    expect(d?.getMonth()).toBe(9);
+    expect(d?.getDate()).toBe(5);
+  });
+
+  it("parses legacy French dates", () => {
+    const d = parseEventDate("05/10/2027");
+    expect(d?.getFullYear()).toBe(2027);
+    expect(d?.getMonth()).toBe(9);
+    expect(d?.getDate()).toBe(5);
+  });
+
+  it("rejects rollover dates, wrong shapes and garbage (never NaN)", () => {
+    expect(parseEventDate("2027-13-45")).toBeNull();
+    expect(parseEventDate("45/13/2027")).toBeNull();
+    expect(parseEventDate("01/01/2000 → 2027-10-05")).toBeNull();
+    expect(parseEventDate("")).toBeNull();
+    expect(parseEventDate("NaN/NaN/NaN")).toBeNull();
   });
 });

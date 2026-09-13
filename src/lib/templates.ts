@@ -39,13 +39,17 @@ export async function templateVersionFor(
 }
 
 /**
- * Create a NEW template version from a set of row seeds, marking it active.
- * Deactivates previous active version for the same year+section.
+ * Create a NEW template version from a set of row seeds.
+ * When `active` (default true): marks it active and deactivates the previous
+ * active version for the same year+section — i.e. immediate replacement.
+ * When `active` is false: the version is saved as a draft (is_active=false);
+ * nothing else is touched, so the current active version is unaffected.
  */
 export async function createNewTemplateVersion(
   yearId: string,
   section: "primaire" | "secondaire",
-  rows: RowSeed[]
+  rows: RowSeed[],
+  active: boolean = true
 ): Promise<{ id: string; version: number } | { error: string }> {
   const supabase = await createClient();
 
@@ -60,26 +64,29 @@ export async function createNewTemplateVersion(
     .maybeSingle();
   const nextVersion = (last?.version ?? 0) + 1;
 
-  // Insert template version (active) — RLS: super admin only
+  // Insert template version — is_active true = immediate replacement,
+  // false = draft saved without touching the existing active version.
   const { data: tv, error: tvErr } = await supabase
     .from("template_versions")
     .insert({
       school_year_id: yearId,
       section,
       version: nextVersion,
-      is_active: true,
+      is_active: active,
     })
     .select("id")
     .single();
   if (tvErr || !tv) return { error: tvErr?.message ?? "Erreur création version" };
 
-  // Deactivate previous
-  await supabase
-    .from("template_versions")
-    .update({ is_active: false })
-    .eq("school_year_id", yearId)
-    .eq("section", section)
-    .neq("id", tv.id);
+  // When activating, deactivate the previous active version.
+  if (active) {
+    await supabase
+      .from("template_versions")
+      .update({ is_active: false })
+      .eq("school_year_id", yearId)
+      .eq("section", section)
+      .neq("id", tv.id);
+  }
 
   // Insert rows
   const seeds = rows.map((r) => ({

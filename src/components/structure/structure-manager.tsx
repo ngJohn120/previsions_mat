@@ -59,10 +59,17 @@ export function StructureManager({
 
   async function submit() {
     setBusy(true); setError(null);
-    const res = edit
-      ? await updateClass({ id: edit.id, section: section as any, name, level, ordre, titulaire_id: titulaireId || null })
-      : await createClass({ school_year_id: yearId, section: section as any, name, level, ordre, titulaire_id: titulaireId || null });
-    if (res.error) { setError(res.error); setBusy(false); return; }
+    // A throwing action (transport/RSC failure) must release the dialog
+    // instead of spinning forever — surface it as a plain error.
+    try {
+      const res = edit
+        ? await updateClass({ id: edit.id, section: section as any, name, level, ordre, titulaire_id: titulaireId || null })
+        : await createClass({ school_year_id: yearId, section: section as any, name, level, ordre, titulaire_id: titulaireId || null });
+      if (res.error) { setError(res.error); setBusy(false); return; }
+    } catch {
+      setError("La requête n'a pas abouti. Vérifiez si la modification a été enregistrée, puis réessayez.");
+      setBusy(false); return;
+    }
     setOpen(false); setBusy(false);
     router.refresh();
   }
@@ -151,6 +158,9 @@ export function StructureManager({
                 onChange={(e) => setTitulaireId(e.target.value)}
               >
                 <option value="">— À désigner —</option>
+                {edit?.titulaire_id && !teachers.some((t) => t.id === edit.titulaire_id) && (
+                  <option value={edit.titulaire_id} disabled>Actuel : {edit.titulaire_name ?? "—"} (hors poste) — choisissez un remplaçant</option>
+                )}
                 {teachers.map((t) => (
                   <option key={t.id} value={t.id}>{t.full_name}</option>
                 ))}

@@ -220,6 +220,28 @@ export function parseLabelBounds(label: string | null): { start?: Date; end?: Da
   return m && m.length === 2 ? { start: parseFrDate(m[0]), end: parseFrDate(m[1]) } : {};
 }
 
+/** Parse a single event bound coming from a form: ISO yyyy-mm-dd (the wizard's
+ *  <input type="date">) or legacy DD/MM/YYYY (the old free-text modal).
+ *  Returns null when unparseable — callers must reject, never store NaN dates. */
+export function parseEventDate(input: string): Date | null {
+  const s = input.trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (iso) {
+    const y = Number(iso[1]);
+    const m = Number(iso[2]);
+    const d = Number(iso[3]);
+    const out = new Date(y, m - 1, d);
+    // Round-trip guard: new Date(2027, 13, 45) rolls over instead of failing.
+    return out.getFullYear() === y && out.getMonth() === m - 1 && out.getDate() === d ? out : null;
+  }
+  const fr = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
+  if (fr) {
+    const out = parseFrDate(s);
+    return out.getDate() === Number(fr[1]) && out.getMonth() === Number(fr[2]) - 1 ? out : null;
+  }
+  return null;
+}
+
 /** Recompute mois from the start date for enseignement rows; events stay null. */
 export function recomputeMois<T extends RowSeed>(row: T): T {
   if (row.row_type !== "enseignement") return { ...row, mois: null };

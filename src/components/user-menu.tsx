@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { signOut } from "@/app/actions";
 
@@ -20,17 +19,16 @@ export function UserMenu({
   rolesLabel: string;
   initial: string;
 }) {
-  const [open, setOpen] = useState(false);
-
   return (
-    <Menu.Root open={open} onOpenChange={setOpen}>
+    // Uncontrolled: Base UI owns open/close (mousedown toggle on the trigger).
+    // A manual `onClick` toggle (added for touch fallback) double-toggled:
+    // the trigger already opens on mousedown, then the click flipped it shut —
+    // "click does nothing, click-and-hold works". Removing it restores the
+    // standard click-to-open behavior.
+    <Menu.Root>
       <Menu.Trigger
         aria-label="Menu utilisateur"
         title="Voir mes informations"
-        // Open on click (not Base UI's default mousedown) — plain clicks work
-        // reliably on touch devices, while the internal mousedown path can be
-        // swallowed by mobile browsers.
-        onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-2 rounded-full transition-colors select-none outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-500/40 data-pressed:bg-slate-100"
       >
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-700 text-xs font-bold text-white">

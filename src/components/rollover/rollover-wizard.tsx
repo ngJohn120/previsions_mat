@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createSchoolYear, activateYear } from "@/app/(app)/admin/annee/actions";
+import { createYearForRevision, deleteUpcomingYear } from "@/app/(app)/admin/annee/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,39 +25,59 @@ export function RolloverWizard({
   const [label, setLabel] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [clone, setClone] = useState(true);
+  const [clone, setClone] = useState(false); // opt-in (default off: don't clone unless the user ticks)
   const [cloneCals, setCloneCals] = useState(false);
-  const [createdYearId, setCreatedYearId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Section validation flags (in real flow tracked in DB; here derive from created year presence)
-  const primValidated = createdYearId !== null;
-  const secValidated = createdYearId !== null;
+  // Section validation flags (real flow tracked in DB; here placeholder until
+  // the year is actually created at activation).
+  const primValidated = false;
+  const secValidated = false;
 
+  // Step 1 collects parameters only — nothing is persisted until the
+  // « Activer la nouvelle année » button on step 5.
   async function submitStep1() {
     setBusy(true); setError(null);
-    const res = await createSchoolYear({
-      label: label || "Nouvelle année",
-      start_date: startDate || `${new Date().getFullYear()}-09-01`,
-      end_date: endDate || `${new Date().getFullYear() + 1}-07-07`,
-      clone_from_year_id: clone && sourceYear ? sourceYear.id : null,
-      clone_calendars: cloneCals,
-    });
-    if (res.error) { setError(res.error); setBusy(false); return; }
-    setCreatedYearId(res.id ?? null);
+    if (!label.trim() || !startDate || !endDate) {
+      setError("Libellé, rentrée et fin sont obligatoires.");
+      setBusy(false);
+      return;
+    }
     setBusy(false);
-    router.refresh();
     setStep(2);
   }
 
-  async function doActivate() {
-    if (!createdYearId) return;
-    setBusy(true); setError(null);
-    const res = await activateYear(createdYearId);
-    if (res.error) { setError(res.error); setBusy(false); return; }
-    setBusy(false); router.refresh();
-    router.push("/");
+  async function doCreate() {
+      setBusy(true); setError(null);
+      try {
+        const res = await createYearForRevision({
+          label: label || "Nouvelle année",
+          start_date: startDate || `${new Date().getFullYear()}-09-01`,
+          end_date: endDate || `${new Date().getFullYear() + 1}-07-07`,
+          clone_from_year_id: clone && sourceYear ? sourceYear.id : null,
+          clone_calendars: cloneCals,
+        });
+        if (res.error) { setError(res.error); setBusy(false); return; }
+        setBusy(false);
+        // After a server action, refresh so the updated RSC tree is committed
+        // before navigating — direct push can race the revalidation stream in dev.
+        router.refresh();
+        // The year now exists as « À venir »: section admins validate it on the
+        // Révision page — that's where final activation also happens.
+        router.push("/admin/revision");
+      } catch (e) {
+        setBusy(false);
+        setError(e instanceof Error ? e.message : "Erreur inconnue.");
+      }
+    }
+
+  async function handleDeleteYear(yearId: string, yearLabel: string) {
+    if (!confirm(`Supprimer l'année « ${yearLabel} » ? Cette action est définitive.`)) return;
+    setError(null);
+    const res = await deleteUpcomingYear(yearId);
+    if (res.error) { setError(res.error); return; }
+    router.refresh();
   }
 
   function go(delta: number) {
@@ -95,7 +115,7 @@ export function RolloverWizard({
         })}
       </div>
 
-      {/* Step 1 — Paramètres */}
+      {/* Step 1 — Paramètres (nothing is created here) */}
       {step === 1 && (
         <div className="rounded-xl border border-slate-200 bg-white p-6">
           <h2 className="text-lg font-bold text-slate-900">Paramètres de la nouvelle année</h2>
@@ -120,34 +140,44 @@ export function RolloverWizard({
           </div>
           {error && <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
           <div className="mt-5 flex justify-end">
-            <Button onClick={submitStep1} disabled={busy}>{busy ? "Création…" : "Créer & continuer →"}</Button>
+            <Button onClick={submitStep1} disabled={busy}>Continuer →</Button>
           </div>
         </div>
       )}
 
-      {/* Step 2 — Structure */}
+      {/* Step 2 — Structure (preview; nothing is created until step 5) */}
       {step === 2 && (
         <div className="rounded-xl border border-slate-200 bg-white p-6">
-          <h2 className="text-lg font-bold text-slate-900">Structure & attributions clonées</h2>
-          <p className="mt-1 text-sm text-slate-500">Aperçu depuis {sourceYear?.label ?? "—"}</p>
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-                <tr><th className="px-3 py-2">Classe</th><th className="px-3 py-2">Cours</th><th className="px-3 py-2">Sous-branche</th><th className="px-3 py-2">Enseignant</th></tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {sourceAttrs.slice(0, 10).map((a) => (
-                  <tr key={a.id}>
-                    <td className="px-3 py-2 font-semibold">{a.classe}</td>
-                    <td className="px-3 py-2">{a.branche}</td>
-                    <td className="px-3 py-2 text-slate-500">{a.sous_branche ?? "—"}</td>
-                    <td className="px-3 py-2">{a.enseignant}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {sourceAttrs.length === 0 && <p className="py-6 text-center text-slate-400">Aucune attribution dans l'année source.</p>}
-          </div>
+          <h2 className="text-lg font-bold text-slate-900">Structure & attributions à cloner</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            {clone && sourceYear
+              ? `Aperçu depuis ${sourceYear.label} — la structure sera clonée lors de l'activation (étape 5).`
+              : "Aucun clonage demandé : la nouvelle année sera activée sans structure ni attributions."}
+          </p>
+          {clone && sourceYear ? (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                  <tr><th className="px-3 py-2">Classe</th><th className="px-3 py-2">Cours</th><th className="px-3 py-2">Sous-branche</th><th className="px-3 py-2">Enseignant</th></tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {sourceAttrs.slice(0, 10).map((a) => (
+                    <tr key={a.id}>
+                      <td className="px-3 py-2 font-semibold">{a.classe}</td>
+                      <td className="px-3 py-2">{a.branche}</td>
+                      <td className="px-3 py-2 text-slate-500">{a.sous_branche ?? "—"}</td>
+                      <td className="px-3 py-2">{a.enseignant}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {sourceAttrs.length === 0 && <p className="py-6 text-center text-slate-400">Aucune attribution dans l&apos;année source.</p>}
+            </div>
+          ) : (
+            <p className="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-500">
+              Aucune donnée à afficher : la case « Cloner la structure » n&apos;est pas cochée.
+            </p>
+          )}
           <div className="mt-5 flex justify-between">
             <Button variant="outline" onClick={() => go(-1)}>← Précédent</Button>
             <Button onClick={() => go(1)}>Suivant →</Button>
@@ -191,8 +221,8 @@ export function RolloverWizard({
           <h2 className="text-lg font-bold text-slate-900">Calendriers & modèles</h2>
           <p className="mt-1 text-sm text-slate-500">
             {cloneCals
-              ? "Les modèles ont été copiés depuis l'année source. Générez/ajustez chaque section dans « Calendrier & modèles »."
-              : "Aucun calendrier copié. Générez les calendriers des deux sections dans « Calendrier & modèles »."}
+              ? "Les modèles seront copiés depuis l'année source lors de l'activation. Générez/ajustez chaque section dans « Calendrier & modèles »."
+              : "Aucun calendrier à copier. Générez les calendriers des deux sections dans « Calendrier & modèles »."}
           </p>
           <div className="mt-4 flex gap-3">
             <Button variant="outline" onClick={() => router.push("/admin/calendrier?section=primaire")}>Primaire → calendrier</Button>
@@ -205,41 +235,50 @@ export function RolloverWizard({
         </div>
       )}
 
-      {/* Step 5 — Activation */}
-      {step === 5 && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6">
-          <h2 className="text-lg font-bold text-slate-900">Activation</h2>
-          <div className="mt-3 space-y-2 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700">Primaire validée</span>
-              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700">Secondaire validée</span>
-            </div>
-            <p className="text-slate-500">L'année en cours ({years.find((y) => y.id === activeYearId)?.label ?? "active"}) sera archivée (lecture seule).</p>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" defaultChecked /> Notifier les enseignants de l'ouverture (à venir)
-            </label>
-          </div>
-          {error && <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
-          <div className="mt-5 flex justify-between">
-            <Button variant="outline" onClick={() => go(-1)}>← Précédent</Button>
-            <Button onClick={doActivate} disabled={busy} className="bg-green-700 hover:bg-green-800">
-              {busy ? "Activation…" : "Activer la nouvelle année"}
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* Step 5 — Activation (creates the year for revision here) */}
+            {step === 5 && (
+              <div className="rounded-xl border border-slate-200 bg-white p-6">
+                <h2 className="text-lg font-bold text-slate-900">Activation</h2>
+                <div className="mt-3 space-y-2 text-sm">
+                  <p className="text-slate-500">La nouvelle année sera créée (statut « À venir ») à cette étape. L&apos;année en cours ({years.find((y) => y.id === activeYearId)?.label ?? "active"}) sera archivée au moment de la valider définitivement.</p>
+                  <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-blue-800">
+                    Les administrateurs de section valident ensuite leur structure sur la page <strong>Révision</strong> —
+                    c&apos;est là que l&apos;activation finale a lieu, une fois les deux sections validées.
+                  </div>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" defaultChecked /> Notifier les enseignants de l'ouverture (à venir)
+                  </label>
+                </div>
+                {error && <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+                <div className="mt-5 flex justify-between">
+                  <Button variant="outline" onClick={() => go(-1)}>← Précédent</Button>
+                  <Button onClick={doCreate} disabled={busy} className="bg-green-700 hover:bg-green-800">
+                    {busy ? "Création…" : "Créer l'année pour révision"}
+                  </Button>
+                </div>
+              </div>
+            )}
 
       {/* Existing years */}
       <div className="rounded-xl border border-slate-200 bg-white p-6">
         <h3 className="text-sm font-bold text-slate-800">Années scolaires</h3>
         <div className="mt-3 space-y-2">
           {years.map((y) => (
-            <div key={y.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-4 py-2 text-sm">
+            <div key={y.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 px-4 py-2 text-sm">
               <span className="font-semibold">{y.label}</span>
               <span className="text-xs text-slate-500">{y.class_count} classes · {y.attr_count} attributions</span>
               <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${y.status === "active" ? "bg-blue-100 text-blue-700" : y.status === "archived" ? "bg-slate-100 text-slate-500" : "bg-amber-100 text-amber-700"}`}>
                 {y.status === "active" ? "Active" : y.status === "archived" ? "Archivée" : "À venir"}
               </span>
+              {y.status === "upcoming" && (
+                <Button
+                  variant="outline"
+                  className="h-7 border-red-200 px-2 text-xs text-red-600 hover:bg-red-50"
+                  onClick={() => handleDeleteYear(y.id, y.label)}
+                >
+                  Supprimer
+                </Button>
+              )}
             </div>
           ))}
           {years.length === 0 && <p className="text-sm text-slate-400">Aucune année scolaire.</p>}

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser, isSuperAdmin, type Role, type Section } from "@/lib/auth";
 import { validateUsersCsv, type CsvRow } from "@/lib/csv";
+import { seedRosterForUser } from "@/lib/roster";
 
 export type RoleInput = { role: Role; section?: Section | null };
 
@@ -66,6 +67,15 @@ export async function createUser(input: {
     if (rErr) return { error: `Rôle ${r.role} : ${rErr.message}` };
   }
 
+  // 4. Roster rows for active/upcoming years (best-effort: no years yet is a
+  // normal no-op — the next year creation backfills from roles anyway).
+  // Covers importUsersCsv too, which delegates to createUser.
+  try {
+    await seedRosterForUser(admin, userId);
+  } catch (e) {
+    console.error("seedRosterForUser:", e instanceof Error ? e.message : e);
+  }
+
   revalidatePath("/admin/utilisateurs");
   return { tempPassword: generated };
 }
@@ -101,6 +111,14 @@ export async function updateUser(input: {
       section: r.section ?? null,
     });
     if (rErr) return { error: `Rôle ${r.role} : ${rErr.message}` };
+  }
+
+  // 3. Roster rows for a newly granted teacher role (best-effort, same rule
+  // as createUser — without this a promoted teacher stays unassignable).
+  try {
+    await seedRosterForUser(admin, input.userId);
+  } catch (e) {
+    console.error("seedRosterForUser:", e instanceof Error ? e.message : e);
   }
 
   revalidatePath("/admin/utilisateurs");

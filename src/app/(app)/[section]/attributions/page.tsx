@@ -1,9 +1,12 @@
 import { getSessionUser, isSuperAdmin, isSectionAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { AttributionsManager } from "@/components/attributions/attributions-manager";
 
 export const dynamic = "force-dynamic";
+
+const YEAR_COOKIE = "pm_year";
 
 export default async function AttributionsPage({
   params,
@@ -21,13 +24,20 @@ export default async function AttributionsPage({
 
   const supabase = await createClient();
 
-  const { data: activeYear } = await supabase
+  // Selected school year: the top-bar switcher cookie (same rule as the app
+  // layout and the Structure page) — NOT always the active year.
+  const cookieStore = await cookies();
+  const cookieYear = cookieStore.get(YEAR_COOKIE)?.value;
+
+  const { data: years } = await supabase
     .from("school_years")
-    .select("id, label")
-    .eq("status", "active")
-    .limit(1)
-    .maybeSingle();
-  const yearId = activeYear?.id ?? "";
+    .select("id, label, status");
+
+  const selectedYear = (years ?? []).find((y: { id: string }) => y.id === cookieYear)
+    ?? (years ?? []).find((y: { status: string }) => y.status === "active")
+    ?? (years ?? [])[0];
+
+  const yearId = selectedYear?.id ?? "";
 
   // Attributions with fiche statut
   const { data: attrs } = yearId
@@ -42,15 +52,33 @@ export default async function AttributionsPage({
   const { data: branches } = await supabase.from("branches").select("id, name, sections");
   const { data: sous } = await supabase.from("sous_branches").select("id, name, branche_id");
   const { data: fiches } = await supabase.from("fiches").select("id, attribution_id, statut");
-  // No FK between user_roles and profiles, so fetch roles then names separately
+  // No FK between user_roles and profiles, so fetch roles then names separately.
+  // Roster-filtered: only teachers active for the selected year are choosable.
   const { data: teacherRoles } = await supabase
     .from("user_roles")
     .select("user_id, role, section")
     .eq("role", "enseignant")
     .eq("section", section);
-  const teacherIds = [...new Set((teacherRoles ?? []).map((t: { user_id: string }) => t.user_id))];
-  const { data: teacherProfiles } = teacherIds.length
-    ? await supabase.from("profiles").select("id, full_name").in("id", teacherIds)
+  const { data: roster } = yearId
+    ? await supabase
+        .from("teacher_years")
+        .select("user_id")
+        .eq("school_year_id", yearId)
+        .eq("section", section)
+        .eq("is_active", true)
+    : { data: [] };
+  const rosterIds = new Set((roster ?? []).map((r: { user_id: string }) => r.user_id));
+  const activeTeacherRoles = (teacherRoles ?? []).filter((t: { user_id: string }) => rosterIds.has(t.user_id));
+  // Orphan attribution ids (teacher off this year's roster) — highlighted in
+  // the table so they can be found and reassigned. Empty when no year.
+  const orphanAttrIds = yearId
+    ? (attrs ?? []).filter((a: { enseignant_id: string }) => !rosterIds.has(a.enseignant_id)).map((a: { id: string }) => a.id)
+    : [];
+  // Profiles for ALL role teachers: display lookups must still name teachers
+  // who left the roster (orphaned rows), only the dropdown stays filtered.
+  const allTeacherIds = [...new Set((teacherRoles ?? []).map((t: { user_id: string }) => t.user_id))];
+  const { data: teacherProfiles } = allTeacherIds.length
+    ? await supabase.from("profiles").select("id, full_name").in("id", allTeacherIds)
     : { data: [] };
   const teacherNameById = new Map((teacherProfiles ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name]));
 
@@ -74,18 +102,19 @@ export default async function AttributionsPage({
   const classOptions = (classes ?? []).filter((c: any) => c.section === section).map((c: any) => ({ id: c.id, name: c.name }));
   const branchOptions = (branches ?? []).filter((b: any) => (b.sections ?? []).includes(section)).map((b: any) => ({ id: b.id, name: b.name }));
   const sousOptions = (sous ?? []).filter((s: any) => branchOptions.some((b: any) => b.id === s.branche_id)).map((s: any) => ({ id: s.id, name: s.name, branche_id: s.branche_id }));
-  const teacherOptions = (teacherRoles ?? []).map((t: { user_id: string }) => ({ id: t.user_id, full_name: teacherNameById.get(t.user_id) ?? "—" }));
+  const teacherOptions = activeTeacherRoles.map((t: { user_id: string }) => ({ id: t.user_id, full_name: teacherNameById.get(t.user_id) ?? "—" }));
 
   return (
     <AttributionsManager
       section={section}
       yearId={yearId}
-      yearLabel={activeYear?.label ?? ""}
+      yearLabel={selectedYear?.label ?? ""}
       items={items}
       classOptions={classOptions}
       branchOptions={branchOptions}
       sousOptions={sousOptions}
       teacherOptions={teacherOptions}
+      orphanAttrIds={orphanAttrIds}
       canManage={canManage}
       superAdmin={superAdmin}
     />

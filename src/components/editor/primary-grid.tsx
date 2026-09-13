@@ -52,29 +52,38 @@ export function PrimaryGrid({
   }
 
   // Compute display rows: teaching rows carry a monthHeader + rowspan when a
-  // new month starts; event rows are standalone full-width bands.
+  // new month starts; event rows are standalone full-width bands. IMPORTANT:
+  // an event band is a physical <tr>, so counting consecutive same-month
+  // teaching rows across a band (as the old code did on the teaching-only
+  // array) made the month cell's rowspan cover the band and left the first
+  // week AFTER the band without a month cell — shifting its Semaine — Date
+  // cell one column left (under "Mois"). Bands now CLOSE a month block; the
+  // next teaching row re-labels the month.
   const display = useMemo(() => {
     type Disp =
       | { kind: "teaching"; row: FicheRow; monthLabel: string | null; monthRowspan: number }
       | { kind: "event"; row: FicheRow };
     const out: Disp[] = [];
     const teaching = rows.filter((r) => r.row_type === "enseignement");
-    // Build consecutive same-month run lengths for teaching rows
-    let i = 0;
-    for (const r of rows) {
+    let t = 0;
+    for (let p = 0; p < rows.length; p++) {
+      const r = rows[p];
       if (r.row_type === "evenement") {
         out.push({ kind: "event", row: r });
         continue;
       }
-      // teaching: decide whether it begins a new month block
-      const prev = teaching[i - 1];
-      const isNewMonth = !prev || prev.mois !== r.mois;
+      // teaching: starts a month block when it begins the table, changes month
+      // versus the previous teaching row, or directly follows an event band.
+      const prevTeaching = teaching[t - 1];
+      const prevWasEvent = p > 0 && rows[p - 1].row_type === "evenement";
+      const isNewMonth = !prevTeaching || prevTeaching.mois !== r.mois || prevWasEvent;
       let rowspan = 1;
       if (isNewMonth) {
-        // count consecutive teaching rows sharing this mois
-        let j = i;
-        while (j + 1 < teaching.length && teaching[j + 1].mois === r.mois) j++;
-        rowspan = j - i + 1;
+        let q = p + 1;
+        while (q < rows.length && rows[q].row_type === "enseignement" && rows[q].mois === r.mois) {
+          rowspan++;
+          q++;
+        }
       }
       out.push({
         kind: "teaching",
@@ -82,7 +91,7 @@ export function PrimaryGrid({
         monthLabel: isNewMonth ? r.mois : null,
         monthRowspan: rowspan,
       });
-      i++;
+      t++;
     }
     return out;
   }, [rows]);

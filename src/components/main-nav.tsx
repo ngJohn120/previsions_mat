@@ -54,23 +54,25 @@ export function buildNavLinks(
       : [];
 
     if (superAdmin) {
-      // Super admin order (user-specified): Année, Calendrier, Utilisateurs,
-      // Branches, Structure, Attributions, Suivi.
-      links.push(
-        { href: `/admin/annee`, label: "Année", show: true },
-        { href: `/admin/calendrier`, label: "Calendrier", show: true },
-        { href: `/admin/utilisateurs`, label: "Utilisateurs", show: true },
-        { href: `/admin/branches`, label: "Branches", show: true },
-        ...sectionLinks,
-        { href: "/admin/suivi", label: "Suivi", show: true }
-      );
-    } else {
-      links.push(
-        { href: `/admin/branches`, label: "Branches", show: true },
-        { href: "/admin/suivi", label: "Suivi", show: true },
-        ...sectionLinks
-      );
-    }
+          // Super admin order (user-specified): Année, Calendrier, Utilisateurs,
+          // Branches, Structure, Attributions, Suivi, Révision.
+          links.push(
+            { href: `/admin/annee`, label: "Année", show: true },
+            { href: `/admin/calendrier`, label: "Calendrier", show: true },
+            { href: `/admin/utilisateurs`, label: "Utilisateurs", show: true },
+            { href: `/admin/branches`, label: "Branches", show: true },
+            ...sectionLinks,
+            { href: "/admin/suivi", label: "Suivi", show: true },
+            { href: "/admin/revision", label: "Révision", show: true }
+          );
+        } else {
+          links.push(
+            { href: `/admin/branches`, label: "Branches", show: true },
+            { href: "/admin/suivi", label: "Suivi", show: true },
+            ...sectionLinks,
+            { href: "/admin/revision", label: "Révision", show: true }
+          );
+        }
   }
   return links.filter((l) => l.show);
 }

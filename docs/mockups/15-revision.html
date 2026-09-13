@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Révision de la nouvelle année — Prévisions Matières (maquette)</title>
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  /* Role switch */
+  .role-switch { display:inline-flex; gap:4px; background:var(--surface-2); border:1px solid var(--border); border-radius:999px; padding:3px; }
+  .role-switch button { border:none; background:transparent; font-size:12.5px; font-weight:600; color:var(--text-2); padding:6px 14px; border-radius:999px; cursor:pointer; }
+  .role-switch button.on { background:var(--surface); color:var(--primary-strong); box-shadow:var(--shadow-sm); }
+  .role-view { display:none; }
+  .role-view.on { display:block; }
+
+  /* Year banner */
+  .year-banner { border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); padding:16px 18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; box-shadow:var(--shadow-sm); }
+  .year-banner .y { font-size:17px; font-weight:750; }
+  .year-banner .sub { font-size:12.5px; color:var(--text-2); margin-top:2px; }
+  .year-banner .meta { margin-left:auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+  /* Section approval cards */
+  .approve-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width: 900px) { .approve-grid { grid-template-columns:1fr; } }
+  .approve-card { border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); padding:16px 18px; box-shadow:var(--shadow-sm); display:flex; flex-direction:column; gap:10px; }
+  .approve-card.confirmed { border-color:#b6e0bb; background:#f5fbf6; }
+  .approve-card .row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .approve-card h3 { margin:0; font-size:15px; }
+  .approve-card .desc { font-size:12.5px; color:var(--text-2); line-height:1.5; }
+  .approve-card .who { font-size:12px; color:var(--text-2); display:flex; align-items:center; gap:6px; }
+  .approve-card .foot { margin-top:auto; padding-top:8px; border-top:1px dashed var(--border); }
+
+  /* Summary table */
+  .sum-table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  .sum-table th { text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.6px; color:var(--text-3); padding:8px 10px; border-bottom:1px solid var(--border-strong); background:var(--surface-2); }
+  .sum-table td { padding:8px 10px; border-bottom:1px solid var(--border); }
+  .sum-table tr:last-child td { border-bottom:none; }
+
+  .hint { font-size:12.5px; color:var(--text-2); background:var(--surface-2); border:1px dashed var(--border-strong); border-radius:var(--radius-sm); padding:10px 12px; line-height:1.5; }
+  .filter-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:8px 10px; background:var(--surface-2); border:1px solid var(--border); border-bottom:none; border-radius:var(--radius-sm) var(--radius-sm) 0 0; }
+  .filter-bar svg { width:15px; height:15px; stroke:var(--text-3); flex-shrink:0; }
+  .filter-bar input { flex:1; min-width:180px; border:1px solid var(--border-strong); border-radius:6px; padding:6px 9px; font-size:12.5px; background:var(--surface); }
+  .filter-bar input:focus { outline:2px solid var(--focus); outline-offset:1px; }
+  .filter-bar select { border:1px solid var(--border-strong); border-radius:6px; padding:6px 8px; font-size:12.5px; background:var(--surface); color:var(--text); }
+  .filter-count { font-size:11.5px; font-weight:700; color:var(--text-3); margin-left:auto; white-space:nowrap; }
+  .sum-table-wrap { border-top:none; }
+  .demo-note { font-size:12px; color:var(--text-3); }
+  .timeline { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12.5px; color:var(--text-2); margin-top:4px; }
+  .timeline .ok { color:var(--success); font-weight:700; }
+  .timeline .wait { color:var(--st-attente); font-weight:700; }
+  .timeline .step-dot { width:18px; height:18px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:10.5px; font-weight:700; }
+  .timeline .step-dot.done { background:var(--success); color:#fff; }
+  .timeline .step-dot.pending { background:var(--st-attente-bg); color:var(--st-attente); }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="nav-scrim" onclick="document.body.classList.remove('nav-open')"></div>
+  <aside class="sidebar">
+    <div class="side-logo"><div class="crest">S</div><div><div class="name">Prévisions Matières</div><div class="sub">Complexe Scolaire SILOE</div></div></div>
+    <nav class="side-nav" id="sideNav">
+      <!-- populated by JS per role -->
+    </nav>
+    <div class="side-foot"><div class="user-box" id="userBox"><div class="avatar">IW</div><div><div class="u-name">Ilunga wa Ilunga</div><div class="u-role">Admin Primaire</div></div></div></div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" onclick="document.body.classList.add('nav-open')" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+      <div class="page-title">Révision de la nouvelle année</div>
+      <div class="spacer"></div>
+      <span class="year-chip">2027 – 2028 · À venir</span>
+      <div class="user-box"><div class="avatar" id="topAvatar">IW</div><div><div class="u-name" id="topName">Ilunga wa Ilunga</div><div class="u-role" id="topRole">Admin Primaire</div></div></div>
+    </header>
+
+    <div class="content">
+      <div class="role-switch">
+        <button id="rolePrim" class="on" onclick="setRole('prim')">Admin Primaire</button>
+        <button id="roleSuper" onclick="setRole('super')">Super admin</button>
+      </div>
+      <span class="demo-note" style="margin-left:10px;">— maquette : basculez de rôle pour voir les deux vues</span>
+
+      <div style="height:14px"></div>
+
+      <!-- ============ VUE ADMIN PRIMAIRE ============ -->
+      <div class="role-view on" id="viewPrim">
+        <div class="year-banner">
+          <div>
+            <div class="y">Année scolaire 2027 – 2028</div>
+            <div class="sub">Rentrée 01/09/2027 · Fin 07/07/2028 · créée par la direction</div>
+          </div>
+          <div class="meta">
+            <span class="chip chip-attente"><span class="dot"></span> En attente de votre validation</span>
+          </div>
+        </div>
+
+        <div style="height:16px"></div>
+
+        <div class="hint">
+          La structure de l'année <strong>2026 – 2027</strong> a été clonée en préparation de la nouvelle année.
+          Vérifiez les classes et attributions de <strong>votre section (Primaire)</strong> ci-dessous, puis validez.
+          La décision <strong>n'engage que votre section</strong> — l'activation finale reste à la direction.
+        </div>
+
+        <div style="height:16px"></div>
+
+        <div class="approve-grid">
+          <div class="approve-card" id="cardPrim">
+            <div class="row">
+              <h3>Primaire</h3>
+              <span class="chip chip-attente" id="chipPrim"><span class="dot"></span> En attente</span>
+            </div>
+            <div class="desc">
+              3 classes · 4 attributions reprises depuis 2026 – 2027 :
+              6e B (Français — grammaire), 6e A, 5e B … enseignants titulaires conservés.
+            </div>
+            <div class="filter-bar">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" id="filterSearch" placeholder="Rechercher une classe, un cours, un enseignant…" oninput="applyFilters()">
+              <select id="filterCours" onchange="applyFilters()">
+                <option value="">Cours : tous</option>
+                <option>Français</option>
+                <option>Mathématiques</option>
+              </select>
+              <select id="filterEnseignant" onchange="applyFilters()">
+                <option value="">Enseignant : tous</option>
+                <option>Mbuyi Kabongo</option>
+                <option>Kazadi Mutombo</option>
+              </select>
+              <span class="filter-count" id="filterCount">4 attributions</span>
+            </div>
+            <div class="sum-table-wrap" style="overflow-x:auto">
+              <table class="sum-table" id="sumTable">
+                <thead><tr><th>Classe</th><th>Cours</th><th>Sous-branche</th><th>Enseignant</th></tr></thead>
+                <tbody>
+                  <tr data-classe="6e B" data-cours="Français" data-ens="Mbuyi Kabongo"><td>6e B</td><td>Français</td><td>Grammaire</td><td>Mbuyi Kabongo</td></tr>
+                  <tr data-classe="6e A" data-cours="Français" data-ens="Mbuyi Kabongo"><td>6e A</td><td>Français</td><td>Grammaire</td><td>Mbuyi Kabongo</td></tr>
+                  <tr data-classe="5e B" data-cours="Français" data-ens="Mbuyi Kabongo"><td>5e B</td><td>Français</td><td>Grammaire</td><td>Mbuyi Kabongo</td></tr>
+                  <tr data-classe="6e B" data-cours="Mathématiques" data-ens="Kazadi Mutombo"><td>6e B</td><td>Mathématiques</td><td>—</td><td>Kazadi Mutombo</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="foot">
+              <button class="btn btn-primary" id="btnValidatePrim" onclick="validate('prim')">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                Valider ma section
+              </button>
+              <button class="btn btn-ghost" onclick="alert('En production : retour vers la Structure pour corriger avant validation.')">Revoir la structure</button>
+            </div>
+          </div>
+
+          <div class="approve-card" id="cardOther" style="opacity:.75;filter:grayscale(.35)">
+            <div class="row">
+              <h3>Secondaire</h3>
+              <span class="chip chip-attente"><span class="dot"></span> En attente</span>
+            </div>
+            <div class="desc">
+              Validation par l'administrateur de la section Secondaire — vous ne voyez pas son tableau.
+            </div>
+            <div class="foot">
+              <span class="chip chip-attente"><span class="dot"></span> En attente — autre admin</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="height:16px"></div>
+        <div class="timeline">
+          Étape : <span class="step-dot done">✓</span> Direction crée l'année (étape 5 du wizard)
+          <span class="step-dot pending">2</span> <span class="wait">Votre validation (vous êtes ici)</span>
+          <span class="step-dot pending">3</span> Validation Secondaire
+          <span class="step-dot pending">4</span> Activation par la direction
+        </div>
+      </div>
+
+      <!-- ============ VUE SUPER ADMIN ============ -->
+      <div class="role-view" id="viewSuper">
+        <div class="year-banner">
+          <div>
+            <div class="y">Année scolaire 2027 – 2028</div>
+            <div class="sub">Rentrée 01/09/2027 · Fin 07/07/2028 · statut « À venir »</div>
+          </div>
+          <div class="meta">
+            <span class="chip chip-attente"><span class="dot"></span> 1/2 validée — activation indisponible</span>
+          </div>
+        </div>
+
+        <div style="height:16px"></div>
+
+        <div class="hint">
+          Chaque administrateur de section valide sa partie depuis cette page avant que vous puissiez activer la nouvelle année.
+          Une validation peut être <strong>retirée</strong> par son auteur tant que l'année n'est pas activée.
+        </div>
+
+        <div style="height:16px"></div>
+
+        <div class="approve-grid">
+          <div class="approve-card confirmed">
+            <div class="row">
+              <h3>Primaire</h3>
+              <span class="chip" style="background:var(--st-soumis-bg);color:var(--st-soumis)"><span class="dot"></span> Validée</span>
+            </div>
+            <div class="desc">Par <strong>Ilunga wa Ilunga</strong> — 10/09/2026 à 17:42</div>
+            <div class="who"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>3 classes · 4 attributions vérifiées</div>
+            <div class="foot"><span class="chip" style="background:var(--st-soumis-bg);color:var(--st-soumis)">Validation reçue</span></div>
+          </div>
+          <div class="approve-card">
+            <div class="row">
+              <h3>Secondaire</h3>
+              <span class="chip chip-attente"><span class="dot"></span> En attente</span>
+            </div>
+            <div class="desc">L'administrateur de la section Secondaire n'a pas encore validé sa structure.</div>
+            <div class="foot"><span class="demo-note">Rappel : l'admin Secondaire se connecte → « Révision » dans son menu</span></div>
+          </div>
+        </div>
+
+        <div style="height:16px"></div>
+        <div class="timeline">
+          Étape : <span class="step-dot done">✓</span> Année créée
+          <span class="step-dot done">✓</span> Primaire validée
+          <span class="step-dot pending">3</span> <span class="wait">Secondaire en attente</span>
+          <span class="step-dot pending">4</span> Activation
+        </div>
+        <div style="height:14px"></div>
+        <button class="btn" disabled style="margin-top:4px">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          Activer la nouvelle année — désactivé tant que les 2 sections ne sont pas validées
+        </button>
+      </div>
+
+      <div style="height:18px"></div>
+      <div class="demo-note">
+        NB maquette : les boutons ci-dessus simulent l'interaction. En production, les statuts viennent de la base
+        (validations enregistrées par section), l'activation du wizard (étape 5) est bloquée tant que les 2 sections ne sont pas validées,
+        et le lien « Révision » apparaît dans le menu des admins de section (et du super admin).
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const NAV = {
+    prim: [
+      { href:"#", label:"Branches" },
+      { href:"#", label:"Suivi" },
+      { href:"07-structure.html", label:"Structure" },
+      { href:"09-affectations.html", label:"Attributions" },
+      { href:"15-revision.html", label:"Révision", active:true },
+    ],
+    super: [
+      { href:"13-rollover.html", label:"Année" },
+      { href:"10-calendrier.html", label:"Calendrier" },
+      { href:"06-gestion-utilisateurs.html", label:"Utilisateurs" },
+      { href:"08-matieres-sous-branches.html", label:"Branches" },
+      { href:"07-structure.html", label:"Structure" },
+      { href:"09-affectations.html", label:"Attributions" },
+      { href:"#", label:"Suivi" },
+      { href:"15-revision.html", label:"Révision", active:true },
+    ],
+  };
+  const USERS = {
+    prim: { avatar:"IW", name:"Ilunga wa Ilunga", role:"Admin Primaire" },
+    super: { avatar:"DN", name:"Direction SILOE", role:"Super admin" },
+  };
+
+  function renderNav(role) {
+    const nav = document.getElementById('sideNav');
+    nav.innerHTML = '';
+    const sec = role === 'super' ? 'Administration' : 'Ma section';
+    nav.innerHTML = `<div class="nav-section">${sec}</div>` +
+      NAV[role].map((l) => `<a class="nav-item${l.active ? ' active' : ''}" href="${l.href}"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> ${l.label}</a>`).join('');
+  }
+  function setRole(role) {
+    document.querySelectorAll('.role-view').forEach((v) => v.classList.toggle('on', v.id === (role === 'super' ? 'viewSuper' : 'viewPrim')));
+    document.getElementById('rolePrim').classList.toggle('on', role === 'prim');
+    document.getElementById('roleSuper').classList.toggle('on', role === 'super');
+    renderNav(role);
+    const u = USERS[role];
+    document.getElementById('userBox').innerHTML = `<div class="avatar">${u.avatar}</div><div><div class="u-name">${u.name}</div><div class="u-role">${u.role}</div></div>`;
+    document.getElementById('topAvatar').textContent = u.avatar;
+    document.getElementById('topName').textContent = u.name;
+    document.getElementById('topRole').textContent = u.role;
+  }
+
+  function validate(section) {
+    if (section === 'prim') {
+      const card = document.getElementById('cardPrim');
+      card.classList.add('confirmed');
+      card.style.opacity = '1';
+      card.style.filter = 'none';
+      const chip = document.getElementById('chipPrim');
+      chip.className = 'chip';
+      chip.style.background = 'var(--st-soumis-bg)';
+      chip.style.color = 'var(--st-soumis)';
+      chip.innerHTML = '<span class="dot"></span> Validée';
+      const btn = document.getElementById('btnValidatePrim');
+      btn.disabled = true;
+      btn.textContent = '✓ Validée';
+      btn.className = 'btn';
+      btn.style.background = 'var(--st-soumis-bg)';
+      btn.style.color = 'var(--st-soumis)';
+      const who = document.createElement('div');
+      who.className = 'who';
+      who.innerHTML = 'Validée par vous — 10/09/2026 à 17:42';
+      card.appendChild(who);
+      document.querySelector('#viewPrim .timeline .step-dot.pending').outerHTML = '<span class="step-dot done">✓</span>';
+      alert('Maquette : en production, un clic = validation enregistrée (section Primaire).');
+    }
+  }
+
+  // live table filtering (mockup demo)
+  function applyFilters() {
+    const q = (document.getElementById('filterSearch').value || '').toLowerCase();
+    const cours = document.getElementById('filterCours').value;
+    const ens = document.getElementById('filterEnseignant').value;
+    const rows = [...document.querySelectorAll('#sumTable tbody tr')];
+    let shown = 0;
+    for (const tr of rows) {
+      const ok = (!q || tr.textContent.toLowerCase().includes(q)) &&
+        (!cours || tr.dataset.cours === cours) &&
+        (!ens || tr.dataset.ens === ens);
+      tr.style.display = ok ? '' : 'none';
+      if (ok) shown++;
+    }
+    const word = shown === 1 ? 'attribution' : 'attributions';
+    document.getElementById('filterCount').textContent =
+      q || cours || ens ? `${shown} ${word} affichée${shown > 1 ? 's' : ''}` : '4 attributions';
+  }
+
+  // init: default admin primaire view; #super opens the super-admin view
+  renderNav('prim');
+  if (location.hash === '#super') setRole('super');
+</script>
+<div class="mock-flag">MAQUETTE · NON FONCTIONNELLE</div>
+</body>
+</html>

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser, isSuperAdmin } from "@/lib/auth";
-import { buildWeeks, generateRowsForSection, type EventSpec } from "@/lib/calendar";
+import { buildWeeks, generateRowsForSection, parseEventDate, type EventSpec, type RowSeed } from "@/lib/calendar";
 import {
   applyDeleteRow, applyInsertWeek, applyShift,
   computeInsertEventDate, computeInsertWeek,
@@ -28,6 +28,10 @@ export async function generateCalendar(input: {
   startDate: string;
   endDate: string;
   events: { label: string; type: string; start: string; end: string }[];
+  /** When false (draft), the version is saved without touching any active version. */
+  active?: boolean;
+  /** Resume: regenerate INTO this existing draft version instead of creating a new one. */
+  resumeVersionId?: string;
 }): Promise<Result> {
   await requireCalendarAdmin();
 
@@ -38,20 +42,115 @@ export async function generateCalendar(input: {
   }
 
   const weeks = buildWeeks(start, end);
-  // Event dates arrive as "DD/MM/YYYY" (the dialog's format hint) — parse
-  // explicitly; new Date("02/11/2026") would read as MM/DD (Feb 11) and
-  // new Date("23/12/2026") is Invalid outright.
-  const events: EventSpec[] = input.events.map((e) => ({
-    label: e.label,
-    type: e.type,
-    start: parseLabelBounds(`01/01/2000 → ${e.start}`).end ?? new Date(NaN),
-    end: parseLabelBounds(`01/01/2000 → ${e.end}`).end ?? new Date(NaN),
-  }));
+  // Event dates arrive as ISO yyyy-mm-dd (the wizard's <input type="date">) or
+  // legacy DD/MM/YYYY (the old modal). Anything unparseable is rejected here —
+  // storing NaN dates would silently poison the version (grid, resume, preview).
+  const events: EventSpec[] = [];
+  for (let i = 0; i < input.events.length; i++) {
+    const e = input.events[i];
+    const evStart = parseEventDate(e.start);
+    const evEnd = parseEventDate(e.end);
+    if (!evStart || !evEnd || evStart > evEnd) {
+      return { error: `Événement « ${e.label.trim() || `ligne ${i + 1}`} » : dates invalides.` };
+    }
+    events.push({ label: e.label, type: e.type, start: evStart, end: evEnd });
+  }
   const rows = generateRowsForSection(weeks, events);
 
-  const res = await createNewTemplateVersion(input.yearId, input.section, rows);
+  // Resume path: rewrite the rows of an existing DRAFT (same year+section),
+  // keeping its version number. Also the only way to activate a draft: submit
+  // with active=true from the resume flow.
+  if (input.resumeVersionId) {
+    const supabase = await createClient();
+    const { data: tv } = await supabase
+      .from("template_versions")
+      .select("id, school_year_id, section, is_active")
+      .eq("id", input.resumeVersionId)
+      .single();
+    if (!tv || tv.school_year_id !== input.yearId || tv.section !== input.section) {
+      return { error: "Brouillon introuvable pour cette année/section." };
+    }
+    if (tv.is_active) {
+      return { error: "Seul un brouillon peut être repris." };
+    }
+    const active = input.active ?? true;
+    const { error: delErr } = await supabase
+      .from("template_rows")
+      .delete()
+      .eq("template_version_id", tv.id);
+    if (delErr) return { error: delErr.message };
+    const insErr = await insertRowSeeds(supabase, tv.id, rows);
+    if (insErr) return { error: insErr };
+    if (active) {
+      const { error: actErr } = await supabase
+        .from("template_versions")
+        .update({ is_active: true })
+        .eq("id", tv.id);
+      if (actErr) return { error: actErr.message };
+      await supabase
+        .from("template_versions")
+        .update({ is_active: false })
+        .eq("school_year_id", input.yearId)
+        .eq("section", input.section)
+        .neq("id", tv.id);
+    }
+    revalidatePath("/admin/calendrier");
+    return {};
+  }
+
+  const res = await createNewTemplateVersion(input.yearId, input.section, rows, input.active ?? true);
   if ("error" in res) return { error: res.error };
 
+  revalidatePath("/admin/calendrier");
+  return {};
+}
+
+/** Insert row seeds for a version (shared by create + resume paths). */
+async function insertRowSeeds(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  templateVersionId: string,
+  rows: RowSeed[]
+): Promise<string | null> {
+  const seeds = rows.map((r) => ({
+    template_version_id: templateVersionId,
+    row_uuid: crypto.randomUUID(),
+    ordre: r.ordre,
+    row_type: r.row_type,
+    mois: r.mois,
+    semaine_num: r.semaine_num,
+    date_label: r.date_label,
+    periode_label: r.periode_label,
+    evenement_label: r.evenement_label,
+  }));
+  const { error } = await supabase.from("template_rows").insert(seeds);
+  return error?.message ?? null;
+}
+
+/** Delete a DRAFT template version (its rows cascade). Active versions are
+ *  refused — activate another version first (generation does that for you). */
+export async function deleteTemplateVersion(input: {
+  templateVersionId: string;
+}): Promise<Result> {
+  await requireCalendarAdmin();
+  const supabase = await createClient();
+  const { data: tv } = await supabase
+    .from("template_versions")
+    .select("id, is_active")
+    .eq("id", input.templateVersionId)
+    .single();
+  if (!tv) return { error: "Version introuvable." };
+  if (tv.is_active) return { error: "Impossible de supprimer la version active." };
+  const { error } = await supabase
+    .from("template_rows")
+    .delete()
+    .eq("template_version_id", tv.id);
+  // Rows first is belt-and-braces (FK cascades anyway); then the version.
+  if (error) return { error: error.message };
+  const { error: vErr } = await supabase
+    .from("template_versions")
+    .delete()
+    .eq("id", tv.id);
+  if (vErr) return { error: vErr.message };
   revalidatePath("/admin/calendrier");
   return {};
 }
@@ -258,12 +357,15 @@ export async function insertTemplateWeek(input: {
   }
 }
 
-/** Insert a single-day event on the anchor week's Monday. */
+/** Insert an event after the anchor. Dates come from the panel (ISO); when
+ *  omitted, defaults to a single day on the anchor week's Monday. No cascade. */
 export async function insertTemplateEvent(input: {
   templateVersionId: string;
   afterRowId: string;
   label: string;
   type: string;
+  startIso?: string;
+  endIso?: string;
 }): Promise<Result & { id?: string }> {
   await requireCalendarAdmin();
   const supabase = await createClient();
@@ -274,7 +376,21 @@ export async function insertTemplateEvent(input: {
     const label = input.label.trim();
     if (!label) return { error: "Le libellé est requis." };
 
-    const day = computeInsertEventDate(anchor);
+    // Resolve dates: explicit panel input (validated) or the single-Monday default.
+    let start: Date;
+    let end: Date;
+    if (input.startIso && input.endIso) {
+      start = new Date(`${input.startIso}T00:00:00`);
+      end = new Date(`${input.endIso}T00:00:00`);
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return { error: "Dates invalides." };
+      }
+      if (start > end) return { error: "La date de début doit précéder la date de fin." };
+    } else {
+      start = computeInsertEventDate(anchor);
+      end = start;
+    }
+    const dateLabel = `${fmt(start)} → ${fmt(end)}`;
     const rowUuid = crypto.randomUUID();
     const { data: inserted, error: insErr } = await supabase
       .from("template_rows")
@@ -285,7 +401,7 @@ export async function insertTemplateEvent(input: {
         row_type: "evenement",
         mois: null,
         semaine_num: null,
-        date_label: `${fmt(day)} → ${fmt(day)}`,
+        date_label: dateLabel,
         periode_label: label,
         evenement_label: input.type,
       })
@@ -302,7 +418,7 @@ export async function insertTemplateEvent(input: {
       ordre: 0,
       mois: null,
       semaine_num: null,
-      date_label: `${fmt(day)} → ${fmt(day)}`,
+      date_label: dateLabel,
       periode_label: label,
       evenement_label: input.type,
     };

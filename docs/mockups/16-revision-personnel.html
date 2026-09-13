@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Révision + Personnel du roster — Prévisions Matières (maquette)</title>
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  .role-switch { display:inline-flex; gap:4px; background:var(--surface-2); border:1px solid var(--border); border-radius:999px; padding:3px; }
+  .role-switch button { border:none; background:transparent; font-size:12.5px; font-weight:600; color:var(--text-2); padding:6px 14px; border-radius:999px; cursor:pointer; }
+  .role-switch button.on { background:var(--surface); color:var(--primary-strong); box-shadow:var(--shadow-sm); }
+  .role-view { display:none; }
+  .role-view.on { display:block; }
+
+  .year-banner { border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); padding:16px 18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; box-shadow:var(--shadow-sm); }
+  .year-banner .y { font-size:17px; font-weight:750; }
+  .year-banner .sub { font-size:12.5px; color:var(--text-2); margin-top:2px; }
+  .year-banner .meta { margin-left:auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+  .approve-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:start; }
+  .approve-grid.single { grid-template-columns:1fr; }
+  .other-status { display:flex; align-items:center; gap:10px; flex-wrap:wrap; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); padding:10px 14px; font-size:12.5px; box-shadow:var(--shadow-sm); }
+  @media (max-width: 900px) { .approve-grid { grid-template-columns:1fr; } }
+  .approve-card { border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); padding:16px 18px; box-shadow:var(--shadow-sm); display:flex; flex-direction:column; gap:10px; }
+  .approve-card h3 { margin:0; font-size:15px; }
+  .approve-card .row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .approve-card .desc { font-size:12.5px; color:var(--text-2); line-height:1.5; }
+  .approve-card .foot { margin-top:auto; padding-top:8px; border-top:1px dashed var(--border); display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+
+  .hint { font-size:12.5px; color:var(--text-2); background:var(--surface-2); border:1px dashed var(--border-strong); border-radius:var(--radius-sm); padding:10px 12px; line-height:1.5; }
+  .demo-note { font-size:12px; color:var(--text-3); }
+  .filter-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:8px 10px; background:var(--surface-2); border:1px solid var(--border); border-bottom:none; border-radius:var(--radius-sm) var(--radius-sm) 0 0; }
+  .filter-bar svg { width:15px; height:15px; stroke:var(--text-3); flex-shrink:0; }
+  .filter-bar input { flex:1; min-width:180px; border:1px solid var(--border-strong); border-radius:6px; padding:6px 9px; font-size:12.5px; background:var(--surface); }
+  .filter-bar input:focus { outline:2px solid var(--focus); outline-offset:1px; }
+  .filter-bar select { border:1px solid var(--border-strong); border-radius:6px; padding:6px 8px; font-size:12.5px; background:var(--surface); color:var(--text); }
+  .filter-count { font-size:11.5px; font-weight:700; color:var(--text-3); margin-left:auto; white-space:nowrap; }
+
+  /* Personnel block */
+  .perso { border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; }
+  .perso-head { background:var(--surface-2); padding:8px 12px; font-size:12px; font-weight:750; text-transform:uppercase; letter-spacing:.5px; color:var(--text-2); display:flex; align-items:center; gap:8px; }
+  .perso-head svg { width:15px; height:15px; stroke:var(--text-3); }
+  .perso-list { max-height:216px; overflow-y:auto; }
+  .perso-search { margin-left:auto; border:1px solid var(--border-strong); border-radius:6px; padding:5px 9px; font-size:12px; background:var(--surface); min-width:130px; max-width:180px; }
+  .perso-search:focus { outline:2px solid var(--focus); outline-offset:1px; }
+  .struct-table-wrap { max-height:224px; overflow-y:auto; border:1px solid var(--border); border-top:none; border-radius:0 0 var(--radius-sm) var(--radius-sm); }
+  .struct-table-wrap thead th { position:sticky; top:0; z-index:1; }
+  .perso table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  .perso td { padding:8px 12px; border-top:1px solid var(--border); vertical-align:middle; }
+  .perso tr.inactive td { background:var(--surface-2); color:var(--text-3); }
+  .perso .count { font-size:11.5px; color:var(--text-2); }
+  .switch { position:relative; width:36px; height:20px; border-radius:999px; border:1px solid var(--border-strong); background:var(--surface-2); cursor:pointer; padding:0; flex-shrink:0; }
+  .switch::after { content:""; position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%; background:var(--text-3); transition:left .15s; }
+  .switch[aria-checked="true"] { background:var(--success-bg); border-color:var(--success); }
+  .switch[aria-checked="true"]::after { left:18px; background:var(--success); }
+
+  /* Orphan banner */
+  .orphan-banner { display:none; border:1px solid #e6b8b8; background:var(--danger-bg); color:var(--danger); border-radius:var(--radius-sm); padding:10px 12px; font-size:12.5px; line-height:1.5; }
+  .orphan-banner.on { display:block; }
+  .orphan-banner strong { font-weight:750; }
+
+  /* Structure table */
+  .sum-table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  .sum-table th { text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.6px; color:var(--text-3); padding:8px 10px; border-bottom:1px solid var(--border-strong); background:var(--surface-2); }
+  .sum-table td { padding:8px 10px; border-bottom:1px solid var(--border); }
+  .sum-table tr:last-child td { border-bottom:none; }
+  .sum-table tr.orphan td { background:var(--danger-bg); }
+  .sum-table tr.orphan td:last-child { color:var(--danger); font-weight:700; }
+
+  .sim-bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; background:var(--surface-2); border:1px dashed var(--border-strong); border-radius:var(--radius-sm); padding:8px 12px; font-size:12px; color:var(--text-2); }
+  .timeline { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12.5px; color:var(--text-2); margin-top:4px; }
+  .timeline .wait { color:var(--st-attente); font-weight:700; }
+  .timeline .step-dot { width:18px; height:18px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:10.5px; font-weight:700; }
+  .timeline .step-dot.done { background:var(--success); color:#fff; }
+  .timeline .step-dot.pending { background:var(--st-attente-bg); color:var(--st-attente); }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="nav-scrim" onclick="document.body.classList.remove('nav-open')"></div>
+  <aside class="sidebar">
+    <div class="side-logo"><div class="crest">S</div><div><div class="name">Prévisions Matières</div><div class="sub">Complexe Scolaire SILOE</div></div></div>
+    <nav class="side-nav" id="sideNav"></nav>
+    <div class="side-foot"><div class="user-box" id="userBox"><div class="avatar">IW</div><div><div class="u-name">Ilunga wa Ilunga</div><div class="u-role">Admin Primaire</div></div></div></div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" onclick="document.body.classList.add('nav-open')" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+      <div class="page-title">Révision de la nouvelle année</div>
+      <div class="spacer"></div>
+      <span class="year-chip">2027 – 2028 · À venir</span>
+      <div class="user-box"><div class="avatar" id="topAvatar">IW</div><div><div class="u-name" id="topName">Ilunga wa Ilunga</div><div class="u-role" id="topRole">Admin Primaire</div></div></div>
+    </header>
+
+    <div class="content">
+      <div class="role-switch">
+        <button id="rolePrim" class="on" onclick="setRole('prim')">Admin Primaire</button>
+        <button id="roleSuper" onclick="setRole('super')">Super admin</button>
+      </div>
+      <span class="demo-note" style="margin-left:10px;">— maquette : basculez de rôle, simulez un départ ci-dessous</span>
+
+      <div style="height:14px"></div>
+
+      <!-- ============ VUE ADMIN PRIMAIRE ============ -->
+      <div class="role-view on" id="viewPrim">
+        <div class="year-banner">
+          <div>
+            <div class="y">Année scolaire 2027 – 2028</div>
+            <div class="sub">Rentrée 01/09/2027 · Fin 07/07/2028 · créée par la direction</div>
+          </div>
+          <div class="meta">
+            <span class="chip chip-attente" id="bannerChip"><span class="dot"></span> En attente de votre validation</span>
+          </div>
+        </div>
+
+        <div style="height:16px"></div>
+
+        <div class="hint">
+          Vérifiez <strong>qui enseigne</strong> dans votre section pour 2027 – 2028 (bloc Personnel),
+          puis la structure clonée. Un enseignant parti doit être désactivé : ses cours passent
+          en <strong style="color:var(--danger)">orphelins</strong> et bloquent votre validation tant qu'ils ne sont pas réassignés.
+        </div>
+
+        <div style="height:16px"></div>
+
+        <div class="approve-grid single">
+          <div class="approve-card" id="cardPrim">
+            <div class="row">
+              <h3>Primaire</h3>
+              <span class="chip chip-attente" id="chipPrim"><span class="dot"></span> En attente</span>
+            </div>
+
+            <!-- PERSONNEL -->
+            <div class="perso">
+              <div class="perso-head">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Personnel 2027 – 2028 · <span id="rosterCount">7 actifs</span>
+                <input class="perso-search" id="rosterSearch" type="text" placeholder="Rechercher un enseignant…" oninput="filterRoster()" aria-label="Rechercher un enseignant">
+              </div>
+              <div class="perso-list">
+              <table>
+                <tbody id="rosterBody">
+                  <tr data-teacher="Mbuyi Kabongo" data-courses="3">
+                    <td><strong>Mbuyi Kabongo</strong><div class="count">3 cours (6e B, 6e A, 5e B · Français)</div></td>
+                    <td style="text-align:right;white-space:nowrap">
+                      <span class="chip chip-soumis status-chip"><span class="dot"></span> Actif</span>
+                      <button class="switch" role="switch" aria-checked="true" aria-label="Actif sur le roster 2027 – 2028" onclick="toggleTeacher(this)"></button>
+                    </td>
+                  </tr>
+                  <tr data-teacher="Kazadi Mutombo" data-courses="1">
+                    <td><strong>Kazadi Mutombo</strong><div class="count">1 cours (6e B · Mathématiques)</div></td>
+                    <td style="text-align:right;white-space:nowrap">
+                      <span class="chip chip-soumis status-chip"><span class="dot"></span> Actif</span>
+                      <button class="switch" role="switch" aria-checked="true" aria-label="Actif sur le roster 2027 – 2028" onclick="toggleTeacher(this)"></button>
+                    </td>
+                  </tr>
+                  <tr data-teacher="Tshisekedi wa Tshisekedi">
+                    <td><strong>Tshisekedi wa Tshisekedi</strong><div class="count">0 cours · <span class="chip" style="background:var(--warn-bg);color:var(--warn)">Compte désactivé — toujours sur le roster</span></div></td>
+                    <td style="text-align:right;white-space:nowrap">
+                      <span class="chip chip-soumis status-chip"><span class="dot"></span> Actif</span>
+                      <button class="switch" role="switch" aria-checked="true" aria-label="Actif sur le roster 2027 – 2028" onclick="toggleTeacher(this)"></button>
+                    </td>
+                  </tr>
+                  <tr data-teacher="Kabongo wa Kabongo" data-courses="2">
+                    <td><strong>Kabongo wa Kabongo</strong><div class="count">2 cours (5e A · Sciences)</div></td>
+                    <td style="text-align:right;white-space:nowrap">
+                      <span class="chip chip-soumis status-chip"><span class="dot"></span> Actif</span>
+                      <button class="switch" role="switch" aria-checked="true" aria-label="Actif sur le roster 2027 – 2028" onclick="toggleTeacher(this)"></button>
+                    </td>
+                  </tr>
+                  <tr data-teacher="Mbuyi Ilunga" data-courses="1">
+                    <td><strong>Mbuyi Ilunga</strong><div class="count">1 cours (6e A · Dessin)</div></td>
+                    <td style="text-align:right;white-space:nowrap">
+                      <span class="chip chip-soumis status-chip"><span class="dot"></span> Actif</span>
+                      <button class="switch" role="switch" aria-checked="true" aria-label="Actif sur le roster 2027 – 2028" onclick="toggleTeacher(this)"></button>
+                    </td>
+                  </tr>
+                  <tr data-teacher="Ngoy wa Ngoy" data-courses="0">
+                    <td><strong>Ngoy wa Ngoy</strong><div class="count">0 cours · nouvelle recrue</div></td>
+                    <td style="text-align:right;white-space:nowrap">
+                      <span class="chip chip-soumis status-chip"><span class="dot"></span> Actif</span>
+                      <button class="switch" role="switch" aria-checked="true" aria-label="Actif sur le roster 2027 – 2028" onclick="toggleTeacher(this)"></button>
+                    </td>
+                  </tr>
+                  <tr data-teacher="Tshibangu Tshibangu" data-courses="0">
+                    <td><strong>Tshibangu Tshibangu</strong><div class="count">0 cours · nouvelle recrue</div></td>
+                    <td style="text-align:right;white-space:nowrap">
+                      <span class="chip chip-soumis status-chip"><span class="dot"></span> Actif</span>
+                      <button class="switch" role="switch" aria-checked="true" aria-label="Actif sur le roster 2027 – 2028" onclick="toggleTeacher(this)"></button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              </div><!-- /perso-list -->
+            </div>
+
+            <!-- ORPHAN BANNER -->
+            <div class="orphan-banner" id="orphanBanner">
+              <strong id="orphanTitle">3 cours orphelins.</strong>
+              <span id="orphanText">Mbuyi Kabongo ne fait plus partie de l'année — réassignez ses cours (lignes en rouge) avant de valider.</span>
+              <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+                <a class="btn btn-sm btn-primary" href="09-affectations.html" style="text-decoration:none">Réassigner dans Attributions</a>
+                <a class="btn btn-sm btn-ghost" href="07-structure.html" style="text-decoration:none">Revoir la Structure</a>
+              </div>
+            </div>
+
+            <div class="desc">Structure clonée depuis 2026 – 2027 : 4 classes · 7 attributions.</div>
+            <div class="filter-bar">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" id="structSearch" placeholder="Rechercher une classe, un cours, un enseignant…" oninput="applyStructFilters()">
+              <select id="structCours" onchange="applyStructFilters()">
+                <option value="">Cours : tous</option>
+                <option>Français</option>
+                <option>Mathématiques</option>
+                <option>Sciences</option>
+                <option>Dessin</option>
+              </select>
+              <select id="structEns" onchange="applyStructFilters()">
+                <option value="">Enseignant : tous</option>
+                <option>Mbuyi Kabongo</option>
+                <option>Kazadi Mutombo</option>
+                <option>Kabongo wa Kabongo</option>
+                <option>Mbuyi Ilunga</option>
+              </select>
+              <span class="filter-count" id="structCount">7 attributions</span>
+            </div>
+            <div class="struct-table-wrap" style="overflow-x:auto">
+              <table class="sum-table" id="sumTable">
+                <thead><tr><th>Classe</th><th>Cours</th><th>Sous-branche</th><th>Enseignant</th></tr></thead>
+                <tbody>
+                  <tr data-ens="Mbuyi Kabongo"><td>6e B</td><td>Français</td><td>Grammaire</td><td>Mbuyi Kabongo</td></tr>
+                  <tr data-ens="Mbuyi Kabongo"><td>6e A</td><td>Français</td><td>Grammaire</td><td>Mbuyi Kabongo</td></tr>
+                  <tr data-ens="Mbuyi Kabongo"><td>5e B</td><td>Français</td><td>Grammaire</td><td>Mbuyi Kabongo</td></tr>
+                  <tr data-ens="Kazadi Mutombo"><td>6e B</td><td>Mathématiques</td><td>—</td><td>Kazadi Mutombo</td></tr>
+                  <tr data-ens="Kabongo wa Kabongo"><td>5e A</td><td>Sciences</td><td>—</td><td>Kabongo wa Kabongo</td></tr>
+                  <tr data-ens="Kabongo wa Kabongo"><td>5e B</td><td>Sciences</td><td>—</td><td>Kabongo wa Kabongo</td></tr>
+                  <tr data-ens="Mbuyi Ilunga"><td>6e A</td><td>Dessin</td><td>—</td><td>Mbuyi Ilunga</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="foot">
+              <button class="btn btn-primary" id="btnValidatePrim" onclick="tryValidate()">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                Valider ma section
+              </button>
+              <span class="demo-note" id="validateNote">Structure + Personnel doivent être propres.</span>
+            </div>
+          </div>
+
+        </div>
+
+        <div style="height:14px"></div>
+
+        <div class="other-status">
+          <strong>Secondaire</strong>
+          <span class="chip chip-attente"><span class="dot"></span> En attente — validée par l'autre admin</span>
+          <span class="demo-note">Vous ne voyez ni son tableau ni son personnel.</span>
+        </div>
+
+        <div style="height:16px"></div>
+
+        <div class="sim-bar">
+          <strong>Démo :</strong> simulez un départ pour voir le mécanisme —
+          <button class="btn btn-sm btn-danger-ghost" onclick="simulateDeparture()">Mbuyi Kabongo quitte l'école</button>
+          <button class="btn btn-sm btn-ghost" onclick="resetDemo()">Réinitialiser</button>
+        </div>
+
+        <div style="height:16px"></div>
+        <div class="timeline">
+          Étape : <span class="step-dot done">✓</span> Direction crée l'année
+          <span class="step-dot pending">2</span> <span class="wait">Votre validation (structure + personnel)</span>
+          <span class="step-dot pending">3</span> Validation Secondaire
+          <span class="step-dot pending">4</span> Activation par la direction
+        </div>
+      </div>
+
+      <!-- ============ VUE SUPER ADMIN ============ -->
+      <div class="role-view" id="viewSuper">
+        <div class="year-banner">
+          <div>
+            <div class="y">Année scolaire 2027 – 2028</div>
+            <div class="sub">Rentrée 01/09/2027 · Fin 07/07/2028 · statut « À venir »</div>
+          </div>
+          <div class="meta">
+            <span class="chip chip-attente"><span class="dot"></span> 0/2 validée — activation indisponible</span>
+          </div>
+        </div>
+
+        <div style="height:16px"></div>
+
+        <div class="hint">
+          Vue d'ensemble : personnel et orphelins par section. Vous pouvez vous-même
+          activer/désactiver un enseignant, mais la <strong>validation</strong> reste aux admins de section.
+        </div>
+
+        <div style="height:16px"></div>
+
+        <div class="approve-grid">
+          <div class="approve-card">
+            <div class="row">
+              <h3>Primaire</h3>
+              <span class="chip chip-attente"><span class="dot"></span> En attente</span>
+            </div>
+            <div class="desc">Personnel : <strong>7 actifs</strong> · <strong style="color:var(--danger)">3 cours orphelins (Mbuyi Kabongo)</strong> — survolés en rouge dans le tableau admin.</div>
+            <div class="desc">Structure : 4 classes · 7 attributions vérifiées par aucun validateur pour l'instant.</div>
+            <div class="foot"><span class="demo-note">En attente de l'admin Primaire (structure + personnel propres requis).</span></div>
+          </div>
+          <div class="approve-card">
+            <div class="row">
+              <h3>Secondaire</h3>
+              <span class="chip chip-attente"><span class="dot"></span> En attente</span>
+            </div>
+            <div class="desc">Personnel : <strong>2 actifs</strong> · 0 cours orphelin.</div>
+            <div class="desc">Structure : 2 classes · 3 attributions.</div>
+            <div class="foot"><span class="demo-note">En attente de l'admin Secondaire.</span></div>
+          </div>
+        </div>
+
+        <div style="height:16px"></div>
+        <button class="btn" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          Activer la nouvelle année — désactivé (validations 0/2 + orphelins en Primaire)
+        </button>
+      </div>
+
+      <div style="height:18px"></div>
+      <div class="demo-note">
+        NB maquette : les interrupteurs et la simulation ci-dessus montrent le comportement prévu —
+        un enseignant désactivé fait apparaître ses cours en orphelins et verrouille « Valider ma section ».
+        La ligne « Compte désactivé — toujours sur le roster » illustre l'avertissement non bloquant
+        (compte fermé dans Utilisateurs mais encore présent sur le roster de l'année).
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const NAV = {
+    prim: [
+      { href:"#", label:"Branches" },
+      { href:"#", label:"Suivi" },
+      { href:"07-structure.html", label:"Structure" },
+      { href:"09-affectations.html", label:"Attributions" },
+      { href:"16-revision-personnel.html", label:"Révision", active:true },
+    ],
+    super: [
+      { href:"13-rollover.html", label:"Année" },
+      { href:"10-calendrier.html", label:"Calendrier" },
+      { href:"06-gestion-utilisateurs.html", label:"Utilisateurs" },
+      { href:"08-matieres-sous-branches.html", label:"Branches" },
+      { href:"07-structure.html", label:"Structure" },
+      { href:"09-affectations.html", label:"Attributions" },
+      { href:"#", label:"Suivi" },
+      { href:"16-revision-personnel.html", label:"Révision", active:true },
+    ],
+  };
+  const USERS = {
+    prim: { avatar:"IW", name:"Ilunga wa Ilunga", role:"Admin Primaire" },
+    super: { avatar:"DN", name:"Direction SILOE", role:"Super admin" },
+  };
+
+  function renderNav(role) {
+    const nav = document.getElementById('sideNav');
+    nav.innerHTML = `<div class="nav-section">${role === 'super' ? 'Administration' : 'Ma section'}</div>` +
+      NAV[role].map((l) => `<a class="nav-item${l.active ? ' active' : ''}" href="${l.href}"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> ${l.label}</a>`).join('');
+  }
+  function setRole(role) {
+    document.querySelectorAll('.role-view').forEach((v) => v.classList.toggle('on', v.id === (role === 'super' ? 'viewSuper' : 'viewPrim')));
+    document.getElementById('rolePrim').classList.toggle('on', role === 'prim');
+    document.getElementById('roleSuper').classList.toggle('on', role === 'super');
+    renderNav(role);
+    const u = USERS[role];
+    document.getElementById('userBox').innerHTML = `<div class="avatar">${u.avatar}</div><div><div class="u-name">${u.name}</div><div class="u-role">${u.role}</div></div>`;
+    document.getElementById('topAvatar').textContent = u.avatar;
+    document.getElementById('topName').textContent = u.name;
+    document.getElementById('topRole').textContent = u.role;
+  }
+
+  function rosterState() {
+    return [...document.querySelectorAll('#rosterBody tr')].map((tr) => ({
+      name: tr.dataset.teacher,
+      courses: parseInt(tr.dataset.courses || '0', 10),
+      active: tr.querySelector('.switch').getAttribute('aria-checked') === 'true',
+    }));
+  }
+  function refreshOrphans() {
+    const state = rosterState();
+    const q = ((document.getElementById('rosterSearch') || {}).value || '').toLowerCase();
+    const visible = state.filter((t) => !q || t.name.toLowerCase().includes(q));
+    const activeCount = state.filter((t) => t.active).length;
+    document.querySelectorAll('#rosterBody tr').forEach((tr) => {
+      if (q && !tr.dataset.teacher.toLowerCase().includes(q)) tr.style.display = 'none';
+      else if (tr.style.display === 'none' && tr.dataset.teacher.toLowerCase().includes(q)) tr.style.display = '';
+    });
+    document.getElementById('rosterCount').textContent = q
+      ? `${visible.filter((t) => t.active).length} actif${visible.filter((t) => t.active).length > 1 ? 's' : ''} · filtré`
+      : `${activeCount} actif${activeCount > 1 ? 's' : ''}`;
+    const departed = state.filter((t) => !t.active && t.courses > 0);
+    const orphanN = departed.reduce((n, t) => n + t.courses, 0);
+    const banner = document.getElementById('orphanBanner');
+    banner.classList.toggle('on', orphanN > 0);
+    if (orphanN > 0) {
+      const names = departed.map((t) => t.name).join(', ');
+      document.getElementById('orphanTitle').textContent = `${orphanN} cours orphelin${orphanN > 1 ? 's' : ''}.`;
+      document.getElementById('orphanText').textContent = `${names} ne fait plus partie de l'année — réassignez ses cours (lignes en rouge) avant de valider.`;
+    }
+    document.querySelectorAll('#sumTable tbody tr').forEach((tr) => {
+      tr.classList.toggle('orphan', departed.some((t) => t.name === tr.dataset.ens));
+    });
+    const btn = document.getElementById('btnValidatePrim');
+    btn.disabled = orphanN > 0;
+    document.getElementById('validateNote').textContent = orphanN > 0
+      ? `Validation verrouillée : ${orphanN} cours orphelin${orphanN > 1 ? 's' : ''} à réassigner.`
+      : 'Structure + Personnel doivent être propres.';
+    const chip = document.getElementById('chipPrim');
+    if (orphanN > 0) {
+      chip.className = 'chip';
+      chip.style.background = 'var(--danger-bg)';
+      chip.style.color = 'var(--danger)';
+      chip.innerHTML = '<span class="dot"></span> Orphelins à traiter';
+    } else {
+      chip.className = 'chip chip-attente';
+      chip.style.background = '';
+      chip.style.color = '';
+      chip.innerHTML = '<span class="dot"></span> En attente';
+    }
+  }
+  function toggleTeacher(btn) {
+    const on = btn.getAttribute('aria-checked') === 'true';
+    btn.setAttribute('aria-checked', on ? 'false' : 'true');
+    const tr = btn.closest('tr');
+    tr.classList.toggle('inactive', on);
+    const chip = tr.querySelector('.status-chip');
+    if (on) { chip.className = 'chip chip-brouillon status-chip'; chip.innerHTML = '<span class="dot"></span> Inactif'; }
+    else { chip.className = 'chip chip-soumis status-chip'; chip.innerHTML = '<span class="dot"></span> Actif'; }
+    refreshOrphans();
+  }
+  function simulateDeparture() {
+    const tr = document.querySelector('#rosterBody tr[data-teacher="Mbuyi Kabongo"] .switch');
+    if (tr.getAttribute('aria-checked') === 'true') toggleTeacher(tr);
+  }
+  function resetDemo() {
+    document.querySelectorAll('#rosterBody .switch[aria-checked="false"]').forEach((sw) => toggleTeacher(sw));
+  }
+  function tryValidate() {
+    const btn = document.getElementById('btnValidatePrim');
+    if (btn.disabled) { alert('Maquette : validation refusée — des cours orphelins doivent d\u2019abord être réassignés.'); return; }
+    alert('Maquette : en production, un clic = validation enregistrée (structure + personnel propres).');
+  }
+
+  // Roster name search (mockup demo) — orphan logic still sees hidden rows.
+  function filterRoster() {
+    refreshOrphans();
+  }
+
+  // Structure table filters (mockup demo) — mirrors the production Révision filters.
+  function applyStructFilters() {
+    const q = (document.getElementById('structSearch').value || '').toLowerCase();
+    const cours = document.getElementById('structCours').value;
+    const ens = document.getElementById('structEns').value;
+    const rows = [...document.querySelectorAll('#sumTable tbody tr')];
+    let shown = 0;
+    for (const tr of rows) {
+      const ok = (!q || tr.textContent.toLowerCase().includes(q)) &&
+        (!cours || tr.cells[1].textContent === cours) &&
+        (!ens || tr.dataset.ens === ens);
+      tr.style.display = ok ? '' : 'none';
+      if (ok) shown++;
+    }
+    const word = shown === 1 ? 'attribution' : 'attributions';
+    const total = rows.length;
+    document.getElementById('structCount').textContent =
+      q || cours || ens ? `${shown} ${word} affichée${shown > 1 ? 's' : ''}` : `${total} ${total === 1 ? 'attribution' : 'attributions'}`;
+  }
+
+  renderNav('prim');
+  refreshOrphans();
+  if (location.hash === '#super') setRole('super');
+  if (location.hash === '#depart') simulateDeparture();
+</script>
+<div class="mock-flag">MAQUETTE · NON FONCTIONNELLE</div>
+</body>
+</html>

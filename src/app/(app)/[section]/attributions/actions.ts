@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser, isSuperAdmin, isSectionAdmin } from "@/lib/auth";
 import { templateVersionFor } from "@/lib/templates";
 import { validateAttributionsCsv, type CsvRow } from "@/lib/csv";
+import { isRosterMember } from "@/lib/roster";
 
 type Result = { error?: string };
 export type ImportResult = { created: number; errors: string[] };
@@ -16,6 +17,23 @@ async function requireAttributionAccess(section: "primaire" | "secondaire") {
   if (!user) redirect("/login");
   if (!isSuperAdmin(user.roles) && !isSectionAdmin(user.roles, section)) redirect("/");
   return user;
+}
+
+/** Reject teachers who are not on the year's roster. */
+async function checkEnseignantRoster(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  enseignantId: string,
+  schoolYearId: string,
+  section: "primaire" | "secondaire"
+): Promise<string | null> {
+  const member = await isRosterMember(supabase, {
+    userId: enseignantId,
+    schoolYearId,
+    section,
+  });
+  return member
+    ? null
+    : "Cet enseignant ne fait pas partie de l'année sélectionnée.";
 }
 
 export async function createAttribution(input: {
@@ -28,6 +46,17 @@ export async function createAttribution(input: {
 }): Promise<Result> {
   await requireAttributionAccess(input.section);
   const supabase = await createClient();
+
+  if (!input.enseignant_id) {
+    return { error: "Choisissez un enseignant en poste." };
+  }
+  const rosterErr = await checkEnseignantRoster(
+    supabase,
+    input.enseignant_id,
+    input.school_year_id,
+    input.section
+  );
+  if (rosterErr) return { error: rosterErr };
 
   // Insert attribution
   const { data: attr, error } = await supabase
@@ -102,6 +131,24 @@ export async function updateAttribution(input: {
   if (fiche && fiche.statut === "soumise") {
     return { error: "Impossible de modifier une attribution dont la fiche est soumise." };
   }
+
+  // The year's id lives on the row being updated — read it for the roster check.
+  const { data: existing } = await supabase
+    .from("attributions")
+    .select("school_year_id")
+    .eq("id", input.id)
+    .maybeSingle();
+  if (!existing) return { error: "Attribution introuvable. Rechargez la page et réessayez." };
+  if (!input.enseignant_id) {
+    return { error: "Choisissez un enseignant en poste." };
+  }
+  const rosterErr = await checkEnseignantRoster(
+    supabase,
+    input.enseignant_id,
+    existing.school_year_id,
+    input.section
+  );
+  if (rosterErr) return { error: rosterErr };
 
   const { error } = await supabase
     .from("attributions")

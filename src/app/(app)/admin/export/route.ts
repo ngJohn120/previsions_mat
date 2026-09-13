@@ -23,7 +23,19 @@ export async function GET(req: NextRequest) {
   const supabase = await createClient();
   let yearId = req.nextUrl.searchParams.get("yearId");
   if (!yearId) {
-    // fallback: current active year
+    // fallback: the top-bar switcher year (pm_year cookie), else active year
+    const cookieYear = req.cookies.get("pm_year")?.value;
+    if (cookieYear) {
+      const { data: picked } = await supabase
+        .from("school_years")
+        .select("id")
+        .eq("id", cookieYear)
+        .limit(1)
+        .maybeSingle();
+      if (picked) yearId = picked.id;
+    }
+  }
+  if (!yearId) {
     const { data: active } = await supabase
       .from("school_years")
       .select("id")
