@@ -17,7 +17,7 @@
 -- which is snapshot-safe.
 
 -- ============ attributions ============
-create or replace function public.can_access_attribution(p_id uuid)
+create or replace function public.can_access_attribution(p_attribution_id uuid)
 returns boolean
 language sql stable security definer set search_path = public
 as $$
@@ -26,12 +26,12 @@ as $$
     or exists (
       select 1 from public.attributions a
       join public.classes c on c.id = a.classe_id
-      where a.id = p_id
+      where a.id = p_attribution_id
         and public.is_section_admin(c.section)
     )
     or exists (
       select 1 from public.attributions a
-      where a.id = p_id
+      where a.id = p_attribution_id
         and a.enseignant_id = auth.uid()
     );
 $$;
@@ -75,7 +75,7 @@ create policy "attributions_delete_section_admin"
   using (public.can_access_attribution_row(classe_id, enseignant_id));
 
 -- ============ fiches ============
-create or replace function public.can_access_fiche(p_id uuid)
+create or replace function public.can_access_fiche(p_fiche_id uuid)
 returns boolean
 language sql stable security definer set search_path = public
 as $$
@@ -85,13 +85,13 @@ as $$
       select 1 from public.fiches f
       join public.attributions a on a.id = f.attribution_id
       join public.classes c on c.id = a.classe_id
-      where f.id = p_id
+      where f.id = p_fiche_id
         and public.is_section_admin(c.section)
     )
     or exists (
       select 1 from public.fiches f
       join public.attributions a on a.id = f.attribution_id
-      where f.id = p_id
+      where f.id = p_fiche_id
         and a.enseignant_id = auth.uid()
     );
 $$;
