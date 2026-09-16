@@ -3,8 +3,8 @@
 import { useState } from "react";
 
 /**
- * "Télécharger le PDF" button — hits the server-side PDF endpoint
- * (renders this same page with Chrome headless → application/pdf).
+ * "Télécharger le PDF" button — fetches the protected PDF endpoint
+ * (/impression/[ficheId]/pdf), which streams the official ReportLab render.
  */
 export function PdfDownloadButton({
   ficheId,
@@ -21,7 +21,7 @@ export function PdfDownloadButton({
       const res = await fetch(`/impression/${ficheId}/pdf?scale=${scale}`);
       if (!res.ok) {
         const j = await res.json().catch(() => null);
-        alert(j?.error ?? "Erreur lors de la génération du PDF");
+        alert(j?.error ?? "Impossible de générer le PDF.");
         return;
       }
       const blob = await res.blob();
@@ -32,7 +32,7 @@ export function PdfDownloadButton({
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      alert("Erreur lors de la génération du PDF");
+      alert("Impossible de générer le PDF.");
     } finally {
       setBusy(false);
     }

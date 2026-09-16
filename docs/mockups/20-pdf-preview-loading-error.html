@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aperçu PDF · États chargement / erreur — maquette 20</title>
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  body { background: var(--bg); }
+  .toolbar { position: sticky; top: 0; z-index: 30; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .toolbar-in { display: flex; align-items: center; gap: 14px; padding: 10px 18px; flex-wrap: wrap; max-width: 1200px; margin: 0 auto; }
+  .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--text-2); cursor: pointer; border: none; background: none; padding: 6px 8px; border-radius: 6px; }
+  .back-link:hover { background: var(--surface-2); color: var(--text); }
+  .back-link svg { width: 16px; height: 16px; }
+  .toolbar .title { font-weight: 700; font-size: 14.5px; }
+  .spacer { flex: 1; }
+  .preview-wrap { max-width: 1160px; margin: 22px auto 60px; display: flex; flex-direction: column; gap: 26px; align-items: center; }
+  .state-tag { align-self: flex-start; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--text-3); background: var(--surface-2); border: 1px solid var(--border); padding: 4px 10px; border-radius: 999px; }
+  .divider { width: 100%; border-top: 1px dashed var(--border-strong); margin: 6px 0; }
+
+  /* Feuille placeholder (mêmes proportions A4 paysage que le rendu final) */
+  .sheet { width: 1080px; max-width: 97%; background: #fff; box-shadow: 0 6px 24px rgba(23,32,46,.18); }
+  .sheet + .sheet { margin-top: 4px; }
+  .sheet-inner { padding: 40px 44px 34px; }
+  .page-note { font-size: 11px; color: var(--text-3); text-align: center; margin-top: 12px; letter-spacing: .3px; }
+
+  /* -------- État A : chargement -------- */
+  .skeleton-line { height: 12px; border-radius: 6px; background: linear-gradient(90deg, #eef1f6 25%, #e2e7ef 50%, #eef1f6 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+  .skeleton-line.wide { height: 16px; }
+  .skeleton-line.thin { height: 9px; }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  .sk-hdr { text-align: center; display: flex; flex-direction: column; gap: 7px; margin-bottom: 26px; }
+  .sk-fields { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 26px; }
+  .sk-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .sk-grid .cell { height: 16px; border-radius: 4px; background: #f3f5f9; }
+  .sk-row { display: contents; }
+  .loading-line { display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--text-2); font-size: 13px; padding: 14px 0 2px; }
+  .spinner { width: 15px; height: 15px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* -------- État B : erreur -------- */
+  .alert { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 760px; border: 1px solid #e6b8b8; background: var(--danger-bg); color: var(--danger); border-radius: var(--radius); padding: 12px 16px; font-size: 13.5px; font-weight: 500; }
+  .alert svg { width: 18px; height: 18px; flex-shrink: 0; }
+  .alert .retry { margin-left: auto; }
+</style>
+</head>
+<body>
+  <!-- ======= Barre d'aperçu (identique à la page d'impression actuelle) ======= -->
+  <div class="toolbar">
+    <div class="toolbar-in">
+      <a class="back-link" href="03-editeur-primaire.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+        Retour à l'éditeur
+      </a>
+      <div class="title">Aperçu impression · Prévision annuelle — Primaire</div>
+      <div class="spacer"></div>
+      <span class="chip chip-brouillon"><span class="dot"></span>Brouillon</span>
+      <button class="btn btn-primary btn-sm" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+        Télécharger le PDF
+      </button>
+    </div>
+  </div>
+
+  <div class="preview-wrap">
+    <!-- ================= ÉTAT A — Chargement de l'aperçu ================= -->
+    <span class="state-tag">État A · Chargement de l'aperçu…</span>
+    <div class="sheet">
+      <div class="sheet-inner">
+        <div class="sk-hdr">
+          <div class="skeleton-line wide" style="width:56%; margin:0 auto;"></div>
+          <div class="skeleton-line" style="width:40%; margin:0 auto;"></div>
+          <div class="skeleton-line" style="width:34%; margin:0 auto;"></div>
+        </div>
+        <div class="sk-fields">
+          <div class="skeleton-line thin"></div>
+          <div class="skeleton-line thin"></div>
+          <div class="skeleton-line thin"></div>
+        </div>
+        <div class="sk-grid">
+          <div class="sk-row">
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+          </div>
+          <div class="sk-row">
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+          </div>
+          <div class="sk-row">
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+          </div>
+          <div class="sk-row">
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+          </div>
+          <div class="sk-row">
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+          </div>
+        </div>
+        <div class="loading-line">
+          <span class="spinner"></span>
+          Préparation de l'aperçu officiel…
+        </div>
+      </div>
+    </div>
+    <div class="sheet">
+      <div class="sheet-inner">
+        <div class="sk-hdr">
+          <div class="skeleton-line wide" style="width:56%; margin:0 auto;"></div>
+        </div>
+        <div class="sk-grid">
+          <div class="sk-row">
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+          </div>
+          <div class="sk-row">
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+          </div>
+          <div class="sk-row">
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="page-note">— Page 1 / {n} —</div>
+
+    <div class="divider"></div>
+
+    <!-- ================= ÉTAT B — Erreur de rendu ================= -->
+    <span class="state-tag">État B · Erreur de rendu</span>
+    <div class="alert">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+      Impossible de préparer l'aperçu. Réessayez dans un instant.
+      <button class="btn btn-danger-ghost btn-sm retry">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        Réessayer
+      </button>
+    </div>
+
+    <div class="page-note">Maquette 20 — états chargement / erreur du nouvel aperçu PDF (PDF.js). Aucun faux document n'est affiché en erreur.</div>
+  </div>
+</body>
+</html>
