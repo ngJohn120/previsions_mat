@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser, isSuperAdmin, isSectionAdmin } from "@/lib/auth";
-import { templateVersionFor } from "@/lib/templates";
+import { templateVersionFor, type TemplateRow } from "@/lib/templates";
 import { validateAttributionsCsv, type CsvRow } from "@/lib/csv";
 import { isRosterMember } from "@/lib/roster";
 
@@ -36,14 +36,19 @@ async function checkEnseignantRoster(
     : "Cet enseignant ne fait pas partie de l'année sélectionnée.";
 }
 
+/**
+ * Create one attribution per requested sous-branche (a teacher assigned to
+ * several sous-branches of the same cours gets one row + one fiche each).
+ * Empty/omitted list = a single attribution without sous-branche.
+ */
 export async function createAttribution(input: {
   school_year_id: string;
   section: "primaire" | "secondaire";
   classe_id: string;
   branche_id: string;
-  sous_branche_id?: string | null;
+  sous_branche_ids?: string[] | null;
   enseignant_id: string;
-}): Promise<Result> {
+}): Promise<Result & { created?: number }> {
   await requireAttributionAccess(input.section);
   const supabase = await createClient();
 
@@ -58,61 +63,106 @@ export async function createAttribution(input: {
   );
   if (rosterErr) return { error: rosterErr };
 
-  // Insert attribution
-  const { data: attr, error } = await supabase
-    .from("attributions")
-    .insert({
-      school_year_id: input.school_year_id,
-      classe_id: input.classe_id,
-      branche_id: input.branche_id,
-      sous_branche_id: input.sous_branche_id ?? null,
-      enseignant_id: input.enseignant_id,
-    })
-    .select("id")
-    .single();
-  if (error) return { error: error.message };
-
-  // Create draft fiche from the active template (if any)
-  const tpl = await templateVersionFor(input.school_year_id, input.section);
-  if (tpl) {
-    const { data: fiche } = await supabase
-      .from("fiches")
-      .insert({
-        attribution_id: attr.id,
-        school_year_id: input.school_year_id,
-        statut: "brouillon",
-      })
-      .select("id")
-      .single();
-    if (fiche) {
-      for (const tr of tpl.rows) {
-        const { data: row } = await supabase
-          .from("fiche_rows")
-          .insert({
-            fiche_id: fiche.id,
-            row_uuid: tr.row_uuid,
-            ordre: tr.ordre,
-            row_type: tr.row_type,
-            mois: tr.mois,
-            semaine_num: tr.semaine_num,
-            date_label: tr.date_label,
-            periode_label: tr.periode_label,
-            evenement_label: tr.evenement_label,
-          })
-          .select("id")
-          .single();
-        if (row) {
-          const cols = ["matieres", "ref", "intention", "obs", "heure", "mv"];
-          await supabase.from("fiche_cells").insert(
-            cols.map((c) => ({ fiche_row_id: row.id, col_key: c, value: "" }))
-          );
-        }
-      }
+  // Guard against duplicates on (classe, branche, sous-branche): the dialog
+  // disables already-assigned sous-branches, this covers stale tabs/direct
+  // calls. Null sous-branche rows are exempt (Postgres treats each NULL as
+  // distinct in the unique constraint, so re-assigning null is allowed).
+  const requested = [...new Set((input.sous_branche_ids ?? []).map((s) => s.trim()).filter(Boolean))];
+  let toCreate: (string | null)[] = [null];
+  if (requested.length > 0) {
+    const { data: existing } = await supabase
+      .from("attributions")
+      .select("sous_branche_id")
+      .eq("school_year_id", input.school_year_id)
+      .eq("classe_id", input.classe_id)
+      .eq("branche_id", input.branche_id);
+    const takenIds = new Set(
+      (existing ?? []).map((r: { sous_branche_id: string | null }) => r.sous_branche_id).filter(Boolean)
+    );
+    toCreate = requested.filter((sid) => !takenIds.has(sid));
+    if (toCreate.length === 0) {
+      const { data: taken } = await supabase
+        .from("sous_branches")
+        .select("id, name")
+        .in("id", requested);
+      const label = (taken ?? []).map((n: { name: string }) => n.name).join(", ");
+      return { error: `Déjà attribuée${requested.length > 1 ? "s" : ""} pour cette classe et ce cours : ${label}.` };
     }
   }
 
+  // Active template (fetched once) seeds each new fiche.
+  const tpl = await templateVersionFor(input.school_year_id, input.section);
+
+  let created = 0;
+  for (const sid of toCreate) {
+    const { data: attr, error } = await supabase
+      .from("attributions")
+      .insert({
+        school_year_id: input.school_year_id,
+        classe_id: input.classe_id,
+        branche_id: input.branche_id,
+        sous_branche_id: sid,
+        enseignant_id: input.enseignant_id,
+      })
+      .select("id")
+      .single();
+    if (error) {
+      // 23505 = unique violation (raced duplicate) — skip, others still create.
+      if ((error as { code?: string }).code === "23505") continue;
+      return { error: error.message };
+    }
+    created++;
+    if (tpl) await seedFiche(supabase, attr.id, input.school_year_id, tpl.rows);
+  }
+
+  if (created === 0) {
+    return { error: "Aucune attribution créée (déjà existantes)." };
+  }
+
   revalidatePath(`/${input.section}/attributions`);
-  return {};
+  return { created };
+}
+
+/** Draft fiche + template rows + empty cells for a new attribution (best effort). */
+async function seedFiche(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  attributionId: string,
+  schoolYearId: string,
+  templateRows: TemplateRow[]
+): Promise<void> {
+  const { data: fiche } = await supabase
+    .from("fiches")
+    .insert({
+      attribution_id: attributionId,
+      school_year_id: schoolYearId,
+      statut: "brouillon",
+    })
+    .select("id")
+    .single();
+  if (!fiche) return;
+  for (const tr of templateRows) {
+    const { data: row } = await supabase
+      .from("fiche_rows")
+      .insert({
+        fiche_id: fiche.id,
+        row_uuid: tr.row_uuid,
+        ordre: tr.ordre,
+        row_type: tr.row_type,
+        mois: tr.mois,
+        semaine_num: tr.semaine_num,
+        date_label: tr.date_label,
+        periode_label: tr.periode_label,
+        evenement_label: tr.evenement_label,
+      })
+      .select("id")
+      .single();
+    if (row) {
+      const cols = ["matieres", "ref", "intention", "obs", "heure", "mv"];
+      await supabase.from("fiche_cells").insert(
+        cols.map((c) => ({ fiche_row_id: row.id, col_key: c, value: "" }))
+      );
+    }
+  }
 }
 
 export async function updateAttribution(input: {
@@ -258,7 +308,7 @@ export async function importAttributionsCsv(
       section,
       classe_id: cid,
       branche_id: bid,
-      sous_branche_id: sousId,
+      sous_branche_ids: sousId ? [sousId] : [],
       enseignant_id: tid,
     });
     if (res.error) {

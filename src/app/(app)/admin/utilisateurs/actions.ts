@@ -83,12 +83,49 @@ export async function createUser(input: {
 export async function updateUser(input: {
   userId: string;
   full_name: string;
+  email?: string;
+  password?: string;
   phone?: string | null;
   disabled?: boolean;
   roles: RoleInput[];
 }): Promise<Result> {
   await requireSuperAdmin();
   const admin = createAdminClient();
+
+  if (!input.full_name.trim()) {
+    return { error: "Le nom est obligatoire." };
+  }
+
+  // 0. Auth user: keep the Supabase-side identity in sync — the dashboard
+  //    reads user_metadata.full_name for the display name; the login e-mail
+  //    and the password change only when actually provided. Runs first so a
+  //    taken e-mail or a bad password fails before anything else is updated.
+  const { data: authData } = await admin.auth.admin.getUserById(input.userId);
+  const currentEmail = (authData?.user?.email ?? "").toLowerCase();
+  const authPatch: { user_metadata: { full_name: string }; email?: string; email_confirm?: boolean; password?: string } = {
+    user_metadata: { full_name: input.full_name },
+  };
+  if (input.email !== undefined) {
+    const email = input.email.trim().toLowerCase();
+    if (!email) return { error: "L'e-mail est obligatoire." };
+    if (email !== currentEmail) {
+      authPatch.email = email;
+      authPatch.email_confirm = true;
+    }
+  }
+  if (input.password) {
+    if (input.password.length < 6) {
+      return { error: "Le mot de passe doit contenir au moins 6 caractères." };
+    }
+    authPatch.password = input.password;
+  }
+  const { error: auErr } = await admin.auth.admin.updateUserById(input.userId, authPatch);
+  if (auErr) {
+    if (auErr.message.toLowerCase().includes("already")) {
+      return { error: "Cet e-mail est déjà utilisé par un autre compte." };
+    }
+    return { error: `Compte : ${auErr.message}` };
+  }
 
   // 1. Profile + disabled
   const { error: pErr } = await admin

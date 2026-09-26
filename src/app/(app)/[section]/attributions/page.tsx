@@ -88,15 +88,23 @@ export default async function AttributionsPage({
   const ficheByAttr = new Map((fiches ?? []).map((f: any) => [f.attribution_id, f.statut]));
   const teacherById = new Map((teacherRoles ?? []).map((t: { user_id: string }) => [t.user_id, teacherNameById.get(t.user_id) ?? "—"]));
 
-  const items = (attrs ?? []).map((a: any) => ({
-    id: a.id,
-    classe: classById.get(a.classe_id)?.name ?? "—",
-    classe_section: classById.get(a.classe_id)?.section ?? section,
-    branche: branchById.get(a.branche_id) ?? "—",
-    sous_branche: a.sous_branche_id ? sousById.get(a.sous_branche_id) ?? "—" : null,
-    enseignant: teacherById.get(a.enseignant_id) ?? "—",
-    statut: ficheByAttr.get(a.id) ?? null, // null = no fiche yet
-  }));
+  const items = (attrs ?? [])
+    // Scope to the page's section: RLS already hides the other section from
+    // section admins, but a super admin may read both — this table must only
+    // list the section it is titled for.
+    .filter((a: { classe_id: string }) => (classById.get(a.classe_id)?.section ?? section) === section)
+    .map((a: any) => ({
+      id: a.id,
+      classe_id: a.classe_id,
+      branche_id: a.branche_id,
+      sous_branche_id: a.sous_branche_id,
+      classe: classById.get(a.classe_id)?.name ?? "—",
+      classe_section: classById.get(a.classe_id)?.section ?? section,
+      branche: branchById.get(a.branche_id) ?? "—",
+      sous_branche: a.sous_branche_id ? sousById.get(a.sous_branche_id) ?? "—" : null,
+      enseignant: teacherById.get(a.enseignant_id) ?? "—",
+      statut: ficheByAttr.get(a.id) ?? null, // null = no fiche yet
+    }));
 
   // Options for dialog
   const classOptions = (classes ?? []).filter((c: any) => c.section === section).map((c: any) => ({ id: c.id, name: c.name }));

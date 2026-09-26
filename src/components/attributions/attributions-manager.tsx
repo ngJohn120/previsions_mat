@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createAttribution, updateAttribution, deleteAttribution, importAttributionsCsv } from "@/app/(app)/[section]/attributions/actions";
 import { CsvImportDialog } from "@/components/ui/csv-import-dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -12,6 +13,9 @@ import {
 
 type Attr = {
   id: string;
+  classe_id: string;
+  branche_id: string;
+  sous_branche_id: string | null;
   classe: string;
   classe_section: string;
   branche: string;
@@ -19,7 +23,7 @@ type Attr = {
   enseignant: string;
   statut: string | null;
 };
-type Option = { id: string; name: string };
+type Option = { id: string; name: string; branche_id?: string };
 type TeacherOption = { id: string; full_name: string };
 
 function statutChip(statut: string | null) {
@@ -49,33 +53,86 @@ export function AttributionsManager({
   const [edit, setEdit] = useState<Attr | null>(null);
   const [classeId, setClasseId] = useState("");
   const [brancheId, setBrancheId] = useState("");
-  const [sousId, setSousId] = useState("");
+  // Sous-branches of the current selection: several in create (one attribution
+  // each), at most one in edit (the row's own sous-branche).
+  const [sousIds, setSousIds] = useState<string[]>([]);
   const [enseignantId, setEnseignantId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Table filters
+  const [search, setSearch] = useState("");
+  const [coursFilter, setCoursFilter] = useState("");
+  const [enseignantFilter, setEnseignantFilter] = useState("");
+
   const sectionLabel = section === "primaire" ? "Primaire" : "Secondaire";
-  const filteredSous = sousOptions.filter((s: any) => s.branche_id === brancheId);
+  const filteredSous = sousOptions.filter((s) => s.branche_id === brancheId);
+
+  // Already-assigned sous-branches for the selected classe+cours (create mode):
+  // disabled in the checkbox list so the unique constraint can't be hit.
+  const takenSous = useMemo(() => {
+    const m = new Map<string, string>();
+    if (!edit) {
+      for (const it of items) {
+        if (it.classe_id === classeId && it.branche_id === brancheId && it.sous_branche_id) {
+          m.set(it.sous_branche_id, it.enseignant);
+        }
+      }
+    }
+    return m;
+  }, [items, edit, classeId, brancheId]);
+
+  function toggleSous(id: string, on: boolean) {
+    setSousIds((prev) => (on ? [...prev, id] : prev.filter((x) => x !== id)));
+  }
+
+  const shownItems = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return items.filter(
+      (a) =>
+        (!q ||
+          `${a.classe} ${a.branche} ${a.sous_branche ?? ""} ${a.enseignant}`.toLowerCase().includes(q)) &&
+        (!coursFilter || a.branche === coursFilter) &&
+        (!enseignantFilter || a.enseignant === enseignantFilter)
+    );
+  }, [items, search, coursFilter, enseignantFilter]);
+  const filterActive = search !== "" || coursFilter !== "" || enseignantFilter !== "";
 
   function openCreate() {
-    setEdit(null); setClasseId(classOptions[0]?.id ?? ""); setBrancheId(branchOptions[0]?.id ?? ""); setSousId(""); setEnseignantId(teacherOptions[0]?.id ?? ""); setError(null); setOpen(true);
+    setEdit(null); setClasseId(classOptions[0]?.id ?? ""); setBrancheId(branchOptions[0]?.id ?? ""); setSousIds([]); setEnseignantId(teacherOptions[0]?.id ?? ""); setError(null); setOpen(true);
+  }
+
+  function openEdit(a: Attr) {
+    const bid = branchOptions.find((b) => b.name === a.branche)?.id ?? "";
+    const sid = a.sous_branche
+      ? sousOptions.find((s) => s.branche_id === bid && s.name === a.sous_branche)?.id
+      : undefined;
+    setEdit(a); setClasseId(classOptions.find((c) => c.name === a.classe)?.id ?? ""); setBrancheId(bid); setSousIds(sid ? [sid] : []); setEnseignantId(teacherOptions.find((t) => t.full_name === a.enseignant)?.id ?? ""); setError(null); setOpen(true);
   }
 
   async function submit() {
     setBusy(true); setError(null);
-    const payload = {
-      section: section as any,
-      classe_id: classeId,
-      branche_id: brancheId,
-      sous_branche_id: sousId || null,
-      enseignant_id: enseignantId,
-    };
+    const sectionKey = section as "primaire" | "secondaire";
     // A throwing action (transport/RSC failure) must release the dialog
     // instead of spinning forever — surface it as a plain error.
     try {
       const res = edit
-        ? await updateAttribution({ id: edit.id, ...payload })
-        : await createAttribution({ school_year_id: yearId, ...payload });
+        ? await updateAttribution({
+            id: edit.id,
+            section: sectionKey,
+            classe_id: classeId,
+            branche_id: brancheId,
+            sous_branche_id: sousIds[0] ?? null,
+            enseignant_id: enseignantId,
+          })
+        : await createAttribution({
+            school_year_id: yearId,
+            section: sectionKey,
+            classe_id: classeId,
+            branche_id: brancheId,
+            sous_branche_ids: sousIds,
+            enseignant_id: enseignantId,
+          });
       if (res.error) { setError(res.error); setBusy(false); return; }
     } catch {
       setError("La requête n'a pas abouti. Vérifiez si la modification a été enregistrée, puis réessayez.");
@@ -86,7 +143,7 @@ export function AttributionsManager({
 
   async function handleDelete(a: Attr) {
     if (!confirm(`Supprimer l'attribution ${a.branche} · ${a.classe} ?`)) return;
-    const res = await deleteAttribution(a.id, section as any);
+    const res = await deleteAttribution(a.id, section as "primaire" | "secondaire");
     if (res.error) alert(res.error);
     router.refresh();
   }
@@ -112,6 +169,41 @@ export function AttributionsManager({
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        {items.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2">
+            <svg className="h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+            <Input
+              className="h-8 min-w-[180px] flex-1 text-xs"
+              placeholder="Rechercher une classe, un cours, un enseignant…"
+              aria-label="Rechercher une attribution"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <select
+              className="h-8 rounded-md border border-slate-300 bg-white px-2 text-xs"
+              aria-label="Filtrer par cours"
+              value={coursFilter}
+              onChange={(e) => setCoursFilter(e.target.value)}
+            >
+              <option value="">Cours : tous</option>
+              {[...new Set(items.map((a) => a.branche))].sort((a, b) => a.localeCompare(b, "fr")).map((c) => <option key={c}>{c}</option>)}
+            </select>
+            <select
+              className="h-8 rounded-md border border-slate-300 bg-white px-2 text-xs"
+              aria-label="Filtrer par enseignant"
+              value={enseignantFilter}
+              onChange={(e) => setEnseignantFilter(e.target.value)}
+            >
+              <option value="">Enseignant : tous</option>
+              {[...new Set(items.map((a) => a.enseignant))].sort((a, b) => a.localeCompare(b, "fr")).map((t) => <option key={t}>{t}</option>)}
+            </select>
+            <span className="ml-auto text-[11px] font-bold text-slate-400">
+              {filterActive
+                ? `${shownItems.length} attribution${shownItems.length > 1 ? "s" : ""} affichée${shownItems.length > 1 ? "s" : ""}`
+                : `${items.length} attribution${items.length > 1 ? "s" : ""}`}
+            </span>
+          </div>
+        )}
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
@@ -124,7 +216,7 @@ export function AttributionsManager({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {items.map((a) => {
+            {shownItems.map((a) => {
               const orphan = (orphanAttrIds ?? []).includes(a.id);
               return (
               <tr key={a.id} className={orphan ? "bg-red-50 hover:bg-red-100/60" : "hover:bg-slate-50"}>
@@ -136,7 +228,7 @@ export function AttributionsManager({
                 {canManage && (
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="outline" size="sm" onClick={() => { setEdit(a); setClasseId(classOptions.find((c) => c.name === a.classe)?.id ?? ""); setBrancheId(branchOptions.find((b) => b.name === a.branche)?.id ?? ""); setSousId(""); setEnseignantId(teacherOptions.find((t) => t.full_name === a.enseignant)?.id ?? ""); setError(null); setOpen(true); }}>Modifier</Button>
+                      <Button variant="outline" size="sm" onClick={() => openEdit(a)}>Modifier</Button>
                       <Button variant="outline" size="sm" className="text-red-600" onClick={() => handleDelete(a)}>Suppr.</Button>
                     </div>
                   </td>
@@ -144,8 +236,12 @@ export function AttributionsManager({
               </tr>
               );
             })}
-            {items.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Aucune attribution · {sectionLabel}. Cliquez « Nouvelle attribution ».</td></tr>
+            {shownItems.length === 0 && (
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                {filterActive
+                  ? "Aucune attribution ne correspond aux filtres."
+                  : `Aucune attribution · ${sectionLabel}. Cliquez « Nouvelle attribution ».`}
+              </td></tr>
             )}
           </tbody>
         </table>
@@ -166,17 +262,46 @@ export function AttributionsManager({
             </div>
             <div>
               <Label>Cours (branche)</Label>
-              <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={brancheId} onChange={(e) => { setBrancheId(e.target.value); setSousId(""); }}>
+              <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={brancheId} onChange={(e) => { setBrancheId(e.target.value); setSousIds([]); }}>
                 {branchOptions.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
             </div>
-            <div>
-              <Label>Sous-branche (optionnel)</Label>
-              <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={sousId} onChange={(e) => setSousId(e.target.value)}>
-                <option value="">— Aucune —</option>
-                {filteredSous.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
+            {!edit && filteredSous.length > 0 && (
+              <div>
+                <Label>Sous-branches</Label>
+                <div className="mt-1 max-h-32 space-y-1 overflow-y-auto rounded-md border border-slate-200 px-3 py-2">
+                  {filteredSous.map((s) => {
+                    const takenBy = takenSous.get(s.id);
+                    return (
+                      <label
+                        key={s.id}
+                        className={`flex items-center gap-2 text-sm ${takenBy ? "text-slate-400" : ""}`}
+                        title={takenBy ? `Déjà attribuée à ${takenBy}` : undefined}
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-3.5 w-3.5 rounded border-slate-300"
+                          checked={sousIds.includes(s.id)}
+                          disabled={!!takenBy}
+                          onChange={(e) => toggleSous(s.id, e.target.checked)}
+                        />
+                        <span>{s.name}{takenBy ? ` (déjà : ${takenBy})` : ""}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="mt-1 text-[11px] text-slate-500">Cochez une ou plusieurs sous-branches — une attribution et sa fiche seront créées pour chacune.</p>
+              </div>
+            )}
+            {edit && filteredSous.length > 0 && (
+              <div>
+                <Label>Sous-branche (optionnel)</Label>
+                <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={sousIds[0] ?? ""} onChange={(e) => setSousIds(e.target.value ? [e.target.value] : [])}>
+                  <option value="">— Aucune —</option>
+                  {filteredSous.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+            )}
             <div>
               <Label>Enseignant</Label>
               <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={enseignantId} onChange={(e) => setEnseignantId(e.target.value)}>

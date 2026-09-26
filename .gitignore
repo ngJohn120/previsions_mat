@@ -53,3 +53,8 @@ next-env.d.ts
 
 # Generated PDF samples (P5-1)
 docs/out/
+
+# local git worktrees (stay inside project root) & DB backups
+/.worktrees/
+/backups/
+docs/admin-bootstrap-first-super-admin.md
