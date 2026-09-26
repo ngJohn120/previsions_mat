@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { EyeIcon, EyeOffIcon } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
   super_admin: "Super admin",
@@ -57,6 +58,8 @@ export function UsersManager({ users }: { users: UserItem[] }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [roles, setRoles] = useState<RoleRow[]>([{ role: "enseignant", section: "" }]);
 
   const stats = useMemo(() => {
@@ -82,14 +85,15 @@ export function UsersManager({ users }: { users: UserItem[] }) {
 
   function openCreate() {
     setEditTarget(null);
-    setName(""); setEmail(""); setPhone(""); setRoles([{ role: "enseignant", section: "" }]);
+    setName(""); setEmail(""); setPhone(""); setNewPassword(""); setShowPassword(false);
+    setRoles([{ role: "enseignant", section: "" }]);
     setError(null); setTempPassword(null);
     setDialogOpen(true);
   }
 
   function openEdit(u: UserItem) {
     setEditTarget(u);
-    setName(u.full_name); setEmail(u.email); setPhone(u.phone ?? "");
+    setName(u.full_name); setEmail(u.email); setPhone(u.phone ?? ""); setNewPassword(""); setShowPassword(false);
     setRoles(u.roles.map((r) => ({ role: r.role, section: (r.section as any) ?? "" })));
     setError(null); setTempPassword(null);
     setDialogOpen(true);
@@ -102,12 +106,18 @@ export function UsersManager({ users }: { users: UserItem[] }) {
       .map((r) => ({ role: r.role as any, section: r.section ? (r.section as any) : null }));
 
     const res = editTarget
-      ? await updateUser({ userId: editTarget.id, full_name: name, phone, roles: roleInputs })
+      ? await updateUser({ userId: editTarget.id, full_name: name, email, password: newPassword || undefined, phone, roles: roleInputs })
       : await createUser({ email, full_name: name, phone, roles: roleInputs });
 
     if (res.error) { setError(res.error); setBusy(false); return; }
+    // Reset busy in BOTH success branches — the temp-password panel must not
+    // leave the footer stuck on « Enregistrement… » (dead Save until reload).
+    setBusy(false);
     if (res.tempPassword) setTempPassword(res.tempPassword);
-    else { setDialogOpen(false); setBusy(false); router.refresh(); }
+    // No manual router.refresh() on the edit path: the action's revalidatePath
+    // already re-renders this route in the action response, and the extra
+    // navigation raced it (Turbopack flight-client crash, vercel/next.js#92362).
+    else setDialogOpen(false);
   }
 
   async function handleReset(u: UserItem) {
@@ -271,16 +281,39 @@ export function UsersManager({ users }: { users: UserItem[] }) {
               <Label>Nom complet</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex. Mbuyi Kabongo" />
             </div>
-            {!editTarget && (
-              <div>
-                <Label>Adresse e-mail</Label>
-                <Input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="prenom.nom@siloe.edu" />
-              </div>
-            )}
+            <div>
+              <Label>Adresse e-mail</Label>
+              <Input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="prenom.nom@siloe.edu" />
+            </div>
             <div>
               <Label>Téléphone (optionnel)</Label>
               <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+243 …" />
             </div>
+
+            {editTarget && (
+              <div>
+                <Label>Nouveau mot de passe (optionnel)</Label>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Laisser vide pour ne pas changer"
+                    className="pr-9"
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((s) => !s)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div>
               <Label>Rôle(s)</Label>
