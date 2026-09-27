@@ -12,7 +12,14 @@ import {
 } from "@/components/ui/dialog";
 
 type SousBranche = { id: string; name: string; classe_id: string | null; classe: string | null };
-type Branche = { id: string; name: string; sections: string[]; sous_branches: SousBranche[] };
+type Branche = {
+  id: string;
+  name: string;
+  sections: string[];
+  classe_id: string | null;
+  classe: string | null;
+  sous_branches: SousBranche[];
+};
 type Section = "primaire" | "secondaire";
 type ClassOption = { id: string; name: string };
 type SousRow = { id?: string; name: string; classe_id: string };
@@ -27,10 +34,16 @@ function sectionTags(sections: string[]) {
   return null;
 }
 
-function classTags(sous: SousBranche[]) {
-  const names = [
-    ...new Map(sous.filter((s) => s.classe_id).map((s) => [s.classe_id as string, s.classe ?? "—"])).values(),
-  ];
+/** Classe chips: the branch's own class (only when it has no sous-branches — the
+ *  class belongs either to the branch or to its sous-branches, never both) plus
+ *  the classes of the sous-branches currently displayed. */
+function classTags(b: Branche, visibleSous: SousBranche[]) {
+  const pairs: [string, string][] = visibleSous
+    .filter((s) => s.classe_id)
+    .map((s) => [s.classe_id as string, s.classe ?? "—"]);
+  // A branch's own class only counts when it has no sous-branches.
+  if (b.classe_id && b.sous_branches.length === 0) pairs.unshift([b.classe_id, b.classe ?? "—"]);
+  const names = [...new Map(pairs).values()];
   if (!names.length) return <span className="text-slate-400">—</span>;
   return (
     <div className="flex flex-wrap gap-1">
@@ -62,6 +75,7 @@ export function BranchesManager({
   const [usePrim, setUsePrim] = useState(true);
   const [useSec, setUseSec] = useState(true);
   const [sousBranches, setSousBranches] = useState<SousRow[]>([{ name: "", classe_id: "" }]);
+  const [branchClasse, setBranchClasse] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,10 +88,18 @@ export function BranchesManager({
   const isSuper = multiSection; // super admin = both sections in scope
   const allowSousBranches = isSuper ? usePrim : canPrim;
 
-  // « Classe » filter choices: every class referenced by a sous-branche.
+  /** True when the modal holds at least one named sous-branche (an empty input
+   *  row is just the "add one" affordance, not a sous-branche). */
+  const hasSousRow = () => sousBranches.some((s) => s.name.trim() !== "");
+
+  // « Classe » filter choices: every class referenced by the branch itself or by
+  // one of its sous-branches.
   const classeChoices = useMemo(() => {
     const m = new Map<string, string>();
-    for (const b of branches) for (const s of b.sous_branches) if (s.classe_id) m.set(s.classe_id, s.classe ?? "—");
+    for (const b of branches) {
+      if (b.classe_id) m.set(b.classe_id, b.classe ?? "—");
+      for (const s of b.sous_branches) if (s.classe_id) m.set(s.classe_id, s.classe ?? "—");
+    }
     return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]));
   }, [branches]);
 
@@ -104,7 +126,8 @@ export function BranchesManager({
       if (sectionFilter === "both" && !(b.sections.includes("primaire") && b.sections.includes("secondaire"))) return false;
       if (sbFilter === "yes" && b.sous_branches.length === 0) return false;
       if (sbFilter === "no" && b.sous_branches.length > 0) return false;
-      if (activeClasseFilter !== "all" && !b.sous_branches.some((s) => s.classe_id === activeClasseFilter)) return false;
+      if (activeClasseFilter !== "all" && b.classe_id !== activeClasseFilter
+        && !b.sous_branches.some((s) => s.classe_id === activeClasseFilter)) return false;
       return true;
     });
   }, [branches, query, sectionFilter, sbFilter, activeClasseFilter]);
@@ -113,6 +136,7 @@ export function BranchesManager({
     setEdit(null); setName("");
     setUsePrim(canPrim); setUseSec(canSec);
     setSousBranches([{ name: "", classe_id: "" }]);
+    setBranchClasse("");
     setError(null); setOpen(true);
   }
   function openEdit(b: Branche) {
@@ -121,6 +145,7 @@ export function BranchesManager({
     setUseSec(b.sections.includes("secondaire"));
     const rows: SousRow[] = b.sous_branches.map((s) => ({ id: s.id, name: s.name, classe_id: s.classe_id ?? "" }));
     setSousBranches([...rows, { name: "", classe_id: "" }]);
+    setBranchClasse(b.classe_id ?? "");
     setError(null); setOpen(true);
   }
 
@@ -142,8 +167,8 @@ export function BranchesManager({
           .filter((r) => r.name)
       : []; // block hidden ⇒ no primaire side ⇒ no sous-branches
     const res = edit
-      ? await updateBranche({ id: edit.id, name, sections, sous_branches: rows })
-      : await createBranche({ name, sections, sous_branches: rows });
+      ? await updateBranche({ id: edit.id, name, sections, classe_id: branchClasse || null, sous_branches: rows })
+      : await createBranche({ name, sections, classe_id: branchClasse || null, sous_branches: rows });
     if (res.error) { setError(res.error); setBusy(false); return; }
     // NB: no manual router.refresh() — the action's revalidatePath already
     // refreshes the list; the extra refresh races the flight client and can
@@ -231,7 +256,9 @@ export function BranchesManager({
                     </div>
                   ) : <span className="text-slate-400">—</span>}
                 </td>
-                <td className="px-4 py-3">{classTags(sous)}</td>
+                <td className="px-4 py-3">
+                  {b.classe_id || b.sous_branches.some((s) => s.classe_id) ? classTags(b, sous) : <span className="text-slate-400">—</span>}
+                </td>
                 {canManage && (
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-1">
@@ -321,6 +348,26 @@ export function BranchesManager({
                   <p className="mt-1 text-xs text-slate-400">Classes proposées : année {yearLabel}.</p>
                 )}
                 <Button variant="outline" size="sm" className="mt-2" onClick={() => setSousBranches((arr) => [...arr, { name: "", classe_id: "" }])}>+ Ajouter une sous-branche</Button>
+              </div>
+            )}
+            {/* Branch without sous-branches: the class belongs to the branch
+                itself. Once a sous-branche exists the class lives there, so the
+                field hides itself to keep one class per branch. */}
+            {allowSousBranches && !hasSousRow() && (
+              <div>
+                <Label>Classe (optionnel)</Label>
+                <select
+                  value={branchClasse}
+                  onChange={(e) => setBranchClasse(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                  title="Classe associée à la branche (« Partagée » = toutes les classes)"
+                >
+                  <option value="">Partagée</option>
+                  {classOptions.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                {yearLabel && <p className="mt-1 text-xs text-slate-400">Classes proposées : année {yearLabel}.</p>}
               </div>
             )}
             {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
