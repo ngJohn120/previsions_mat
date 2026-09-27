@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBranche, updateBranche, deleteBranche, importBranchesCsv } from "@/app/(app)/admin/branches/actions";
+import { expandSousRows, groupSousByName } from "@/lib/sous-branches";
 import { CsvImportDialog } from "@/components/ui/csv-import-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +23,9 @@ type Branche = {
 };
 type Section = "primaire" | "secondaire";
 type ClassOption = { id: string; name: string };
-type SousRow = { id?: string; name: string; classe_id: string };
+
+/** A sous-branche row in the modal: one NAME, one or several classes. */
+type SousNameRow = { name: string; classeIds: string[] };
 
 const LOCKED_SECTION_HINT = "Gérée par la direction (branches partagées)";
 
@@ -37,12 +40,12 @@ function sectionTags(sections: string[]) {
 /** Classe chips: the branch's own class (only when it has no sous-branches — the
  *  class belongs either to the branch or to its sous-branches, never both) plus
  *  the classes of the sous-branches currently displayed. */
-function classTags(b: Branche, visibleSous: SousBranche[]) {
+function classTags(b: Branche, visibleSous: SousBranche[], nameByClass: Map<string, string>) {
   const pairs: [string, string][] = visibleSous
     .filter((s) => s.classe_id)
-    .map((s) => [s.classe_id as string, s.classe ?? "—"]);
+    .map((s) => [s.classe_id as string, nameByClass.get(s.classe_id as string) ?? s.classe ?? "—"]);
   // A branch's own class only counts when it has no sous-branches.
-  if (b.classe_id && b.sous_branches.length === 0) pairs.unshift([b.classe_id, b.classe ?? "—"]);
+  if (b.classe_id && b.sous_branches.length === 0) pairs.unshift([b.classe_id, nameByClass.get(b.classe_id) ?? b.classe ?? "—"]);
   const names = [...new Map(pairs).values()];
   if (!names.length) return <span className="text-slate-400">—</span>;
   return (
@@ -74,8 +77,10 @@ export function BranchesManager({
   const [name, setName] = useState("");
   const [usePrim, setUsePrim] = useState(true);
   const [useSec, setUseSec] = useState(true);
-  const [sousBranches, setSousBranches] = useState<SousRow[]>([{ name: "", classe_id: "" }]);
+  const [sousBranches, setSousBranches] = useState<SousNameRow[]>([{ name: "", classeIds: [] }]);
   const [branchClasse, setBranchClasse] = useState("");
+  // Which sous-branche row has its class picker expanded (null = all closed).
+  const [openClassPicker, setOpenClassPicker] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -117,6 +122,18 @@ export function BranchesManager({
       ? b.sous_branches
       : b.sous_branches.filter((s) => s.classe_id === activeClasseFilter);
 
+  // Name lookup for any class a row references — including one from another
+  // school year, which is not in `classOptions` (those hold the selected year).
+  const nameByClass = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of classOptions) m.set(c.id, c.name);
+    for (const b of branches) {
+      if (b.classe && b.classe_id) m.set(b.classe_id, b.classe);
+      for (const s of b.sous_branches) if (s.classe && s.classe_id) m.set(s.classe_id, s.classe);
+    }
+    return m;
+  }, [branches, classOptions]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return branches.filter((b) => {
@@ -135,7 +152,7 @@ export function BranchesManager({
   function openCreate() {
     setEdit(null); setName("");
     setUsePrim(canPrim); setUseSec(canSec);
-    setSousBranches([{ name: "", classe_id: "" }]);
+    setSousBranches([{ name: "", classeIds: [] }]);
     setBranchClasse("");
     setError(null); setOpen(true);
   }
@@ -143,10 +160,29 @@ export function BranchesManager({
     setEdit(b); setName(b.name);
     setUsePrim(b.sections.includes("primaire"));
     setUseSec(b.sections.includes("secondaire"));
-    const rows: SousRow[] = b.sous_branches.map((s) => ({ id: s.id, name: s.name, classe_id: s.classe_id ?? "" }));
-    setSousBranches([...rows, { name: "", classe_id: "" }]);
+    // One UI row per sous-branche NAME; its classes are the distinct ones the
+    // catalogue holds for that name (the same name may exist for 1ère and 2e).
+    const byName = new Map<string, SousNameRow>();
+    for (const s of b.sous_branches) {
+      const row = byName.get(s.name) ?? { name: s.name, classeIds: [] };
+      if (s.classe_id && !row.classeIds.includes(s.classe_id)) row.classeIds.push(s.classe_id);
+      byName.set(s.name, row);
+    }
+    setSousBranches([...byName.values(), { name: "", classeIds: [] }]);
     setBranchClasse(b.classe_id ?? "");
     setError(null); setOpen(true);
+  }
+
+  function toggleClasse(rowIdx: number, classeId: string) {
+    setSousBranches((arr) =>
+      arr.map((row, idx) => {
+        if (idx !== rowIdx) return row;
+        const classeIds = row.classeIds.includes(classeId)
+          ? row.classeIds.filter((c) => c !== classeId)
+          : [...row.classeIds, classeId];
+        return { ...row, classeIds };
+      })
+    );
   }
 
   async function submit() {
@@ -162,9 +198,12 @@ export function BranchesManager({
     if (useSec && canSec) sections.push("secondaire");
     if (!sections.length) { setError("Sélectionnez au moins une section."); setBusy(false); return; }
     const rows = allowSousBranches
-      ? sousBranches
-          .map((s) => ({ id: s.id, name: s.name.trim(), classe_id: s.classe_id || null }))
-          .filter((r) => r.name)
+      ? expandSousRows(
+          sousBranches
+            .filter((s) => s.name.trim())
+            // one UI row = one name with N classes ⇒ N storage rows
+            .flatMap((s) => s.classeIds.map((c) => ({ name: s.name, classe_id: c }))),
+        )
       : []; // block hidden ⇒ no primaire side ⇒ no sous-branches
     const res = edit
       ? await updateBranche({ id: edit.id, name, sections, classe_id: branchClasse || null, sous_branches: rows })
@@ -247,17 +286,22 @@ export function BranchesManager({
                 <td className="px-4 py-3">
                   {sous.length ? (
                     <div className="flex flex-wrap gap-1">
-                      {sous.map((s) => (
-                        <span key={s.id} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-                          {s.name}
-                          {s.classe ? <span className="text-slate-400"> · {s.classe}</span> : null}
+                      {groupSousByName(sous).map((g) => (
+                        <span key={g.name} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                          {g.name}
+                          {g.classeIds.length > 0 && (
+                            <span className="text-slate-400">
+                              {" · "}
+                              {g.classeIds.map((id) => nameByClass.get(id) ?? "—").join(" · ")}
+                            </span>
+                          )}
                         </span>
                       ))}
                     </div>
                   ) : <span className="text-slate-400">—</span>}
                 </td>
                 <td className="px-4 py-3">
-                  {b.classe_id || b.sous_branches.some((s) => s.classe_id) ? classTags(b, sous) : <span className="text-slate-400">—</span>}
+                  {b.classe_id || b.sous_branches.some((s) => s.classe_id) ? classTags(b, sous, nameByClass) : <span className="text-slate-400">—</span>}
                 </td>
                 {canManage && (
                   <td className="px-4 py-3 text-right">
@@ -315,28 +359,48 @@ export function BranchesManager({
                 </div>
                 <div className="mt-1 flex items-center gap-2 pr-7 text-[11px] uppercase text-slate-400">
                   <span className="flex-1">Sous-branche</span>
-                  <span className="w-28">Classe</span>
+                  <span className="w-36">Classes</span>
                 </div>
                 <div className="mt-1 max-h-56 space-y-2 overflow-y-auto pr-1">
                   {sousBranches.map((sb, i) => (
-                    <div key={i} className="flex items-center gap-2">
+                    <div key={i} className="flex items-start gap-2">
                       <Input
                         value={sb.name}
                         onChange={(e) => setSousBranches((arr) => arr.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))}
                         placeholder="Ex. Grammaire"
                         className="flex-1"
                       />
-                      <select
-                        value={sb.classe_id}
-                        onChange={(e) => setSousBranches((arr) => arr.map((x, idx) => idx === i ? { ...x, classe_id: e.target.value } : x))}
-                        className="w-28 rounded-md border border-slate-300 px-2 py-1.5 text-xs"
-                        title="Classe associée à cette sous-branche (« Partagée » = toutes les classes)"
-                      >
-                        <option value="">Partagée</option>
-                        {classOptions.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
+                      <div className="w-36 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setOpenClassPicker((cur) => (cur === i ? null : i))}
+                          className="flex w-full items-center justify-between gap-1 rounded-md border border-slate-300 px-2 py-1.5 text-left text-xs text-slate-700 hover:bg-slate-50"
+                          title="Classes associées à cette sous-branche (plusieurs possibles)"
+                        >
+                          <span className="truncate">
+                            {sb.classeIds.length === 0
+                              ? "Partagée"
+                              : sb.classeIds.map((id) => classOptions.find((c) => c.id === id)?.name ?? "—").join(" · ")}
+                          </span>
+                          <span className="text-slate-400">{openClassPicker === i ? "▴" : "▾"}</span>
+                        </button>
+                        {openClassPicker === i && (
+                          <div className="mt-1 max-h-36 space-y-1 overflow-y-auto rounded-md border border-slate-200 bg-white px-2 py-1.5">
+                            {classOptions.map((c) => (
+                              <label key={c.id} className="flex items-center gap-2 text-xs">
+                                <input
+                                  type="checkbox"
+                                  className="h-3.5 w-3.5 rounded border-slate-300"
+                                  checked={sb.classeIds.includes(c.id)}
+                                  onChange={() => toggleClasse(i, c.id)}
+                                />
+                                <span>{c.name}</span>
+                              </label>
+                            ))}
+                            <p className="pt-1 text-[10px] text-slate-400">Aucune cochée = toutes les classes</p>
+                          </div>
+                        )}
+                      </div>
                       <Button variant="ghost" size="sm" onClick={() => setSousBranches((arr) => arr.filter((_, idx) => idx !== i))}>✕</Button>
                     </div>
                   ))}
@@ -347,7 +411,7 @@ export function BranchesManager({
                 {yearLabel && (
                   <p className="mt-1 text-xs text-slate-400">Classes proposées : année {yearLabel}.</p>
                 )}
-                <Button variant="outline" size="sm" className="mt-2" onClick={() => setSousBranches((arr) => [...arr, { name: "", classe_id: "" }])}>+ Ajouter une sous-branche</Button>
+                <Button variant="outline" size="sm" className="mt-2" onClick={() => setSousBranches((arr) => [...arr, { name: "", classeIds: [] }])}>+ Ajouter une sous-branche</Button>
               </div>
             )}
             {/* Branch without sous-branches: the class belongs to the branch
@@ -360,7 +424,7 @@ export function BranchesManager({
                   value={branchClasse}
                   onChange={(e) => setBranchClasse(e.target.value)}
                   className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-                  title="Classe associée à la branche (« Partagée » = toutes les classes)"
+                  title="Classe associée à la branche, sans sous-branche"
                 >
                   <option value="">Partagée</option>
                   {classOptions.map((c) => (
