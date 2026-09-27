@@ -68,7 +68,7 @@ function friendlySousError(name: string, error: { code?: string; message: string
 export async function createBranche(input: {
   name: string;
   sections: ("primaire" | "secondaire")[];
-  classe_id?: string | null;
+  classe_ids?: string[];
   sous_branches?: SousBranchePayload[];
 }): Promise<Result> {
   const access = await requireBranchesAccess();
@@ -80,16 +80,24 @@ export async function createBranche(input: {
   const rows = (input.sous_branches ?? [])
     .map((r) => ({ name: r.name.trim(), classe_id: r.classe_id || null }))
     .filter((r) => r.name);
-  const branchClasse = input.classe_id || null;
-  const classErr = await validateClassLinks(supabase, [branchClasse, ...rows.map((r) => r.classe_id)]);
+  const branchClasses = (input.classe_ids ?? []).filter(Boolean);
+  const classErr = await validateClassLinks(supabase, [...branchClasses, ...rows.map((r) => r.classe_id)]);
   if (classErr) return { error: classErr };
 
   const { data, error } = await supabase
     .from("branches")
-    .insert({ name: input.name.trim(), sections, classe_id: branchClasse })
+    .insert({ name: input.name.trim(), sections })
     .select("id")
     .single();
   if (error) return { error: error.message };
+
+  // Classes directly attached to the branch (link table, 0016)
+  if (branchClasses.length) {
+    const { error: bcErr } = await supabase
+      .from("branch_classes")
+      .insert(branchClasses.map((classe_id) => ({ branche_id: data.id, classe_id })));
+    if (bcErr) return { error: `Classe : ${bcErr.message}` };
+  }
 
   // Sous-branches
   for (const r of rows) {
@@ -107,7 +115,7 @@ export async function updateBranche(input: {
   id: string;
   name: string;
   sections: ("primaire" | "secondaire")[];
-  classe_id?: string | null;
+  classe_ids?: string[];
   sous_branches: SousBranchePayload[]; // full list; id present = existing row to keep
 }): Promise<Result> {
   const access = await requireBranchesAccess();
@@ -128,8 +136,8 @@ export async function updateBranche(input: {
   const rows = input.sous_branches
     .map((r) => ({ id: r.id ?? null, name: r.name.trim(), classe_id: r.classe_id || null }))
     .filter((r) => r.name);
-  const branchClasse = input.classe_id || null;
-  const classErr = await validateClassLinks(supabase, [branchClasse, ...rows.map((r) => r.classe_id)]);
+  const branchClasses = (input.classe_ids ?? []).filter(Boolean);
+  const classErr = await validateClassLinks(supabase, [...branchClasses, ...rows.map((r) => r.classe_id)]);
   if (classErr) return { error: classErr };
 
   // Final sections = whatever the branch already had OUTSIDE this admin's scope
@@ -139,9 +147,34 @@ export async function updateBranche(input: {
   const sections = Array.from(new Set([...keptOutside, ...changedInside]));
   const { error } = await supabase
     .from("branches")
-    .update({ name: input.name.trim(), sections, classe_id: branchClasse })
+    .update({ name: input.name.trim(), sections })
     .eq("id", input.id);
   if (error) return { error: error.message };
+
+  // Branch classes: replace the link rows (the branch's own classes only —
+  // its sous-branches keep theirs).
+  const { data: existingBc } = await supabase
+    .from("branch_classes")
+    .select("classe_id")
+    .eq("branche_id", input.id);
+  const keep = new Set(branchClasses);
+  for (const bc of existingBc ?? []) {
+    if (!keep.has(bc.classe_id)) {
+      await supabase
+        .from("branch_classes")
+        .delete()
+        .eq("branche_id", input.id)
+        .eq("classe_id", bc.classe_id);
+    }
+  }
+  const already = new Set((existingBc ?? []).map((bc: { classe_id: string }) => bc.classe_id));
+  const toAdd = branchClasses.filter((c: string) => !already.has(c));
+  if (toAdd.length) {
+    const { error: bcErr } = await supabase
+      .from("branch_classes")
+      .insert(toAdd.map((classe_id) => ({ branche_id: input.id, classe_id })));
+    if (bcErr) return { error: `Classe : ${bcErr.message}` };
+  }
 
   // Diff instead of wipe-and-reinsert: a row that keeps its id keeps its
   // identity (attributions referencing it are not reset), a changed name or

@@ -35,11 +35,11 @@ export default async function BranchesPage() {
     (years ?? []).find((y: { status: string }) => y.status === "active") ??
     (years ?? [])[0] ?? null;
 
-  const { data: branches } = await supabase
-    .from("branches")
-    .select("id, name, sections, classe_id")
-    .order("name");
+  const { data: branches } = await supabase.from("branches").select("id, name, sections").order("name");
   const { data: sous } = await supabase.from("sous_branches").select("id, branche_id, name, classe_id").order("name");
+  // Branch-level classes live in the link table (0016) — a branch without
+  // sous-branches can target SEVERAL classes.
+  const { data: branchClasses } = await supabase.from("branch_classes").select("branche_id, classe_id");
 
   // « Classe » choices for the modal: primaire classes of the selected year.
   // A binding may point at a class from another year (a branch without
@@ -58,7 +58,7 @@ export default async function BranchesPage() {
     ...new Set(
       [
         ...(sous ?? []).map((s: { classe_id: string | null }) => s.classe_id),
-        ...(branches ?? []).map((b: { classe_id: string | null }) => b.classe_id),
+        ...(branchClasses ?? []).map((bc: { classe_id: string }) => bc.classe_id),
       ].filter(Boolean)
     ),
   ] as string[];
@@ -90,14 +90,19 @@ export default async function BranchesPage() {
   const inScope = (sections: string[]) => sections.some((s) => (scope as string[]).includes(s));
   const items = (branches ?? [])
     .filter((b: { sections: string[] | null }) => inScope(b.sections ?? []))
-    .map((b: { id: string; name: string; sections: string[] | null; classe_id: string | null }) => ({
-      id: b.id,
-      name: b.name,
-      sections: (b.sections ?? []) as string[],
-      classe_id: b.classe_id ?? null,
-      classe: b.classe_id ? classeNameById.get(b.classe_id) ?? "—" : null,
-      sous_branches: sbByBranch.get(b.id) ?? [],
-    }));
+    .map((b: { id: string; name: string; sections: string[] | null }) => {
+      const classeIds = (branchClasses ?? [])
+        .filter((bc: { branche_id: string; classe_id: string }) => bc.branche_id === b.id)
+        .map((bc: { classe_id: string }) => bc.classe_id);
+      return {
+        id: b.id,
+        name: b.name,
+        sections: (b.sections ?? []) as string[],
+        classe_ids: classeIds,
+        classes: classeIds.map((id: string) => classeNameById.get(id) ?? "—"),
+        sous_branches: sbByBranch.get(b.id) ?? [],
+      };
+    });
 
   return (
     <BranchesManager
@@ -105,7 +110,6 @@ export default async function BranchesPage() {
       canManage={canManage}
       scope={scope}
       classOptions={classOptions}
-      yearLabel={selectedYear?.label ?? ""}
     />
   );
 }
