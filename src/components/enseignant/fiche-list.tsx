@@ -15,6 +15,8 @@ import { DemandeModificationDialog } from "@/components/enseignant/demande-modif
 import { ConflitDialog } from "@/components/enseignant/conflit-dialog";
 import { exportFichesCsv } from "@/app/(app)/enseignant/actions";
 import type { FicheListItemData, FicheStatut } from "@/lib/fiche-types";
+import { EyeIcon, PencilIcon, TriangleAlertIcon, UnlockIcon } from "lucide-react";
+import { RowAction } from "@/components/ui/row-action";
 
 export type FicheListItem = FicheListItemData;
 
@@ -203,18 +205,22 @@ export function FicheList({
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-1">
                       {f.conflit ? (
-                        <Button variant="outline" size="sm" className="text-red-600" onClick={() => setConflitFor(f)}>
-                          Résoudre
-                        </Button>
+                        <RowAction label="Résoudre le conflit" tone="danger" onClick={() => setConflitFor(f)}>
+                          <TriangleAlertIcon />
+                        </RowAction>
                       ) : f.statut === "brouillon" ? (
-                        <Button size="sm" onClick={() => router.push(`/fiche/${f.ficheId}`)}>Ouvrir</Button>
+                        <RowAction label="Ouvrir la fiche" onClick={() => router.push(`/fiche/${f.ficheId}`)}>
+                          <PencilIcon />
+                        </RowAction>
                       ) : (
                         <>
-                          <Button variant="outline" size="sm" onClick={() => router.push(`/fiche/${f.ficheId}/consultation`)}>Consulter</Button>
+                          <RowAction label="Consulter" onClick={() => router.push(`/fiche/${f.ficheId}/consultation`)}>
+                            <EyeIcon />
+                          </RowAction>
                           {!f.hasPendingUnlock && (
-                            <Button variant="outline" size="sm" onClick={() => setDemandeFor(f)}>
-                              Demander modification
-                            </Button>
+                            <RowAction label="Demander modification" onClick={() => setDemandeFor(f)}>
+                              <UnlockIcon />
+                            </RowAction>
                           )}
                         </>
                       )}

@@ -8,6 +8,10 @@ export const dynamic = "force-dynamic";
 
 const YEAR_COOKIE = "pm_year";
 
+/** Sentinel id for sous-branches that have no parent branch (migration 0017):
+ *  the manager needs one row per subject, and a null branch id is not a key. */
+const NO_BRANCH = "__sans_branche__";
+
 export default async function BranchesPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
@@ -75,16 +79,22 @@ export default async function BranchesPage() {
     name: c.name,
   }));
 
-  const sbByBranch = new Map<string, { id: string; name: string; classe_id: string | null; classe: string | null }[]>();
+  // Sous-branches WITHOUT a parent branch (0017) are their own subjects: they
+  // are grouped under the sentinel NO_BRANCH so the modal can create and edit
+  // them instead of them silently disappearing from the catalogue.
+  type SousRow = { id: string; name: string; classe_id: string | null; classe: string | null };
+  const sbByBranch = new Map<string, SousRow[]>();
   for (const s of sous ?? []) {
-    const arr = sbByBranch.get(s.branche_id) ?? [];
-    arr.push({
+    const row: SousRow = {
       id: s.id,
       name: s.name,
       classe_id: s.classe_id ?? null,
       classe: s.classe_id ? classeNameById.get(s.classe_id) ?? "—" : null,
-    });
-    sbByBranch.set(s.branche_id, arr);
+    };
+    const key = s.branche_id ?? NO_BRANCH;
+    const arr = sbByBranch.get(key) ?? [];
+    arr.push(row);
+    sbByBranch.set(key, arr);
   }
 
   const inScope = (sections: string[]) => sections.some((s) => (scope as string[]).includes(s));
@@ -104,12 +114,29 @@ export default async function BranchesPage() {
       };
     });
 
+  // Subjects with no parent branch appear as their own rows (primaire only:
+  // they can only carry primaire classes).
+  const orphanItems = (sbByBranch.get(NO_BRANCH) ?? []).length
+    ? [
+        {
+          id: NO_BRANCH,
+          name: "Matières sans branche",
+          sections: ["primaire"] as string[],
+          classe_ids: [] as string[],
+          classes: [] as string[],
+          sansBranche: true,
+          sous_branches: sbByBranch.get(NO_BRANCH) ?? [],
+        },
+      ]
+    : [];
+
   return (
     <BranchesManager
-      branches={items}
+      branches={[...items, ...orphanItems]}
       canManage={canManage}
       scope={scope}
       classOptions={classOptions}
+      superAdmin={superAdmin}
     />
   );
 }

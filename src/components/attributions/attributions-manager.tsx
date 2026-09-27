@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
+import { PencilIcon, Trash2Icon } from "lucide-react";
+import { RowAction } from "@/components/ui/row-action";
 
 type Attr = {
   id: string;
@@ -23,7 +25,7 @@ type Attr = {
   enseignant: string;
   statut: string | null;
 };
-type Option = { id: string; name: string; branche_id?: string; classe_id?: string | null; classe?: string | null };
+type Option = { id: string; name: string; branche_id?: string | null; classe_id?: string | null; classe?: string | null };
 type TeacherOption = { id: string; full_name: string };
 
 function statutChip(statut: string | null) {
@@ -33,7 +35,7 @@ function statutChip(statut: string | null) {
 }
 
 export function AttributionsManager({
-  section, yearId, yearLabel, items, classOptions, branchOptions, sousOptions, teacherOptions, orphanAttrIds, canManage, superAdmin,
+  section, yearId, yearLabel, items, classOptions, branchOptions, orphanSubjects, sousOptions, teacherOptions, orphanAttrIds, canManage, superAdmin,
 }: {
   section: string;
   yearId: string;
@@ -41,6 +43,8 @@ export function AttributionsManager({
   items: Attr[];
   classOptions: Option[];
   branchOptions: Option[];
+  /** Subjects with no parent branch (0017): each is taught as its own cours. */
+  orphanSubjects: Option[];
   sousOptions: Option[]; // {id,name,branche_id}
   teacherOptions: TeacherOption[];
   orphanAttrIds?: string[];
@@ -56,6 +60,8 @@ export function AttributionsManager({
   // Sous-branches of the current selection: several in create (one attribution
   // each), at most one in edit (the row's own sous-branche).
   const [sousIds, setSousIds] = useState<string[]>([]);
+  // Standalone subjects (0017) picked in their own checkbox group.
+  const [orphanIds, setOrphanIds] = useState<string[]>([]);
   const [enseignantId, setEnseignantId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +78,11 @@ export function AttributionsManager({
   const filteredSous = sousOptions.filter(
     (s) => s.branche_id === brancheId && (!s.classe_id || !classeId || s.classe_id === classeId)
   );
+  // Subjects with no parent branch (0017) are their own checkbox group: they
+  // apply whatever branch is selected, so they are only scoped by CLASS.
+  const orphanForClass = orphanSubjects.filter(
+    (o) => !o.classe_id || !classeId || o.classe_id === classeId
+  );
   const classNameById = useMemo(() => {
     const m = new Map<string, string>();
     for (const c of classOptions) m.set(c.id, c.name);
@@ -85,6 +96,11 @@ export function AttributionsManager({
     if (!edit) {
       for (const it of items) {
         if (it.classe_id === classeId && it.branche_id === brancheId && it.sous_branche_id) {
+          m.set(it.sous_branche_id, it.enseignant);
+        }
+        // A standalone subject (branche_id NULL) belongs to no branch: mark it
+        // taken for this classe whatever cours is selected.
+        if (it.classe_id === classeId && !it.branche_id && it.sous_branche_id) {
           m.set(it.sous_branche_id, it.enseignant);
         }
       }
@@ -109,11 +125,13 @@ export function AttributionsManager({
   const filterActive = search !== "" || coursFilter !== "" || enseignantFilter !== "";
 
   function openCreate() {
-    setEdit(null); setClasseId(classOptions[0]?.id ?? ""); setBrancheId(branchOptions[0]?.id ?? ""); setSousIds([]); setEnseignantId(teacherOptions[0]?.id ?? ""); setError(null); setOpen(true);
+    setEdit(null); setClasseId(classOptions[0]?.id ?? ""); setBrancheId(branchOptions[0]?.id ?? ""); setSousIds([]); setOrphanIds([]); setEnseignantId(teacherOptions[0]?.id ?? ""); setError(null); setOpen(true);
   }
 
   function openEdit(a: Attr) {
-    const bid = branchOptions.find((b) => b.name === a.branche)?.id ?? "";
+    // A branch-less subject (0017) has no branch to resolve — keep the first
+    // cours and leave the subject untouched (only the teacher is editable).
+    const bid = a.branche_id ? branchOptions.find((b) => b.id === a.branche_id)?.id ?? "" : branchOptions[0]?.id ?? "";
     const sid = a.sous_branche
       ? sousOptions.find((s) => s.branche_id === bid && s.name === a.sous_branche)?.id
       : undefined;
@@ -126,24 +144,43 @@ export function AttributionsManager({
     // A throwing action (transport/RSC failure) must release the dialog
     // instead of spinning forever — surface it as a plain error.
     try {
-      const res = edit
-        ? await updateAttribution({
-            id: edit.id,
-            section: sectionKey,
-            classe_id: classeId,
-            branche_id: brancheId,
-            sous_branche_id: sousIds[0] ?? null,
-            enseignant_id: enseignantId,
-          })
-        : await createAttribution({
+      if (edit) {
+        // Editing keeps the row's own identity: a branch-less subject (0017)
+        // keeps branche_id NULL and its own sous-branche row.
+        const res = await updateAttribution({
+          id: edit.id,
+          section: sectionKey,
+          classe_id: classeId,
+          branche_id: edit.branche_id,
+          sous_branche_id: edit.branche_id ? sousIds[0] ?? null : edit.sous_branche_id,
+          enseignant_id: enseignantId,
+        });
+        if (res.error) { setError(res.error); setBusy(false); return; }
+      } else {
+        // Two independent batches: the sous-branches of the chosen cours, then
+        // the ticked subjects with no parent branch (branche_id NULL, one
+        // attribution + fiche each).
+        const batches = [
+          { branche_id: brancheId, sous_branche_ids: sousIds },
+          ...(orphanIds.length ? [{ branche_id: null, sous_branche_ids: orphanIds }] : []),
+        ].filter((b) => b.sous_branche_ids.length > 0);
+        if (batches.length === 0) {
+          setError("Choisissez au moins une sous-branche ou une matière sans branche.");
+          setBusy(false);
+          return;
+        }
+        for (const b of batches) {
+          const res = await createAttribution({
             school_year_id: yearId,
             section: sectionKey,
             classe_id: classeId,
-            branche_id: brancheId,
-            sous_branche_ids: sousIds,
+            branche_id: b.branche_id,
+            sous_branche_ids: b.sous_branche_ids,
             enseignant_id: enseignantId,
           });
-      if (res.error) { setError(res.error); setBusy(false); return; }
+          if (res.error) { setError(res.error); setBusy(false); return; }
+        }
+      }
     } catch {
       setError("La requête n'a pas abouti. Vérifiez si la modification a été enregistrée, puis réessayez.");
       setBusy(false); return;
@@ -238,8 +275,12 @@ export function AttributionsManager({
                 {canManage && (
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="outline" size="sm" onClick={() => openEdit(a)}>Modifier</Button>
-                      <Button variant="outline" size="sm" className="text-red-600" onClick={() => handleDelete(a)}>Suppr.</Button>
+                      <RowAction label="Modifier" onClick={() => openEdit(a)}>
+                        <PencilIcon />
+                      </RowAction>
+                      <RowAction label="Supprimer" tone="danger" onClick={() => handleDelete(a)}>
+                        <Trash2Icon />
+                      </RowAction>
                     </div>
                   </td>
                 )}
@@ -272,7 +313,11 @@ export function AttributionsManager({
             </div>
             <div>
               <Label>Cours (branche)</Label>
-              <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={brancheId} onChange={(e) => { setBrancheId(e.target.value); setSousIds([]); }}>
+              <select
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                value={brancheId}
+                onChange={(e) => { setBrancheId(e.target.value); setSousIds([]); }}
+              >
                 {branchOptions.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
             </div>
@@ -315,6 +360,43 @@ export function AttributionsManager({
                   )}
                 </div>
                 <p className="mt-1 text-[11px] text-slate-500">Cochez une ou plusieurs sous-branches — une attribution et sa fiche seront créées pour chacune.</p>
+              </div>
+            )}
+            {/* Subjects with no parent branch (0017): their own group, ticked
+                like sub-branches. One attribution + fiche is created per
+                subject, and each is stored with branche_id NULL. */}
+            {!edit && orphanForClass.length > 0 && (
+              <div>
+                <Label>Matières sans branche</Label>
+                <div className="mt-1 max-h-32 space-y-1 overflow-y-auto rounded-md border border-slate-200 px-3 py-2">
+                  {orphanForClass.map((o) => {
+                    const takenBy = takenSous.get(o.id);
+                    return (
+                      <label
+                        key={o.id}
+                        className={`flex items-center gap-2 text-sm ${takenBy ? "text-slate-400" : ""}`}
+                        title={takenBy ? `Déjà attribuée à ${takenBy}` : undefined}
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-3.5 w-3.5 rounded border-slate-300"
+                          checked={orphanIds.includes(o.id)}
+                          disabled={!!takenBy}
+                          onChange={(e) =>
+                            setOrphanIds((prev) => (e.target.checked ? [...prev, o.id] : prev.filter((x) => x !== o.id)))
+                          }
+                        />
+                        <span>
+                          {o.name}
+                          {takenBy ? ` (déjà : ${takenBy})` : ""}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Cochez une ou plusieurs matières — une attribution et sa fiche seront créées pour chacune.
+                </p>
               </div>
             )}
             {edit && filteredSous.length > 0 && (

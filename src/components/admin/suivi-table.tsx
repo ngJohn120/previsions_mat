@@ -8,6 +8,8 @@ import { Card } from "@/components/ui/card";
 import { approveUnlockRequest, refuseUnlockRequest } from "@/app/(app)/admin/unlock-actions";
 import type { SuiviFicheRow, UnlockRequestWithContext } from "@/lib/fiche";
 import type { Section } from "@/lib/auth";
+import { EyeIcon } from "lucide-react";
+import { RowAction } from "@/components/ui/row-action";
 
 type Tab = "all" | "soumises" | "demandes" | "conflits";
 
@@ -197,9 +199,9 @@ export function SuiviTable({
                   </td>
                   <td className="px-4 py-3 text-slate-500">{fmtDate(f.submittedAt)}</td>
                   <td className="px-4 py-3 text-right">
-                    <Button variant="outline" size="sm" onClick={() => router.push(`/fiche/${f.ficheId}/consultation`)}>
-                      Consulter
-                    </Button>
+                    <RowAction label="Consulter" onClick={() => router.push(`/fiche/${f.ficheId}/consultation`)}>
+                      <EyeIcon />
+                    </RowAction>
                   </td>
                 </tr>
               ))}

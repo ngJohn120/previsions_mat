@@ -57,7 +57,9 @@ export async function GET(req: NextRequest) {
   const lines = fiches.map((f) => [
     f.section === "primaire" ? "Primaire" : "Secondaire",
     f.classe,
-    f.cours,
+    // A subject with no parent branch (0017) has no branch: the « — » is a
+    // display placeholder, not data — leave the Cours cell empty in the CSV.
+    f.cours === "—" ? "" : f.cours,
     f.sousBranche ?? "",
     f.enseignant,
     f.statut === "soumise" ? "soumise" : "brouillon",

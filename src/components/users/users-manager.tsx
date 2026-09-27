@@ -24,7 +24,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { EyeIcon, EyeOffIcon } from "lucide-react";
+import { EyeIcon, EyeOffIcon, KeyRoundIcon, PencilIcon } from "lucide-react";
+import { RowAction } from "@/components/ui/row-action";
 
 const ROLE_LABELS: Record<string, string> = {
   super_admin: "Super admin",
@@ -252,9 +253,13 @@ export function UsersManager({ users }: { users: UserItem[] }) {
                   </button>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" size="sm" onClick={() => openEdit(u)}>Modifier</Button>
-                    <Button variant="outline" size="sm" onClick={() => handleReset(u)}>Réinit. mdp</Button>
+                  <div className="flex justify-end gap-1">
+                    <RowAction label="Modifier" onClick={() => openEdit(u)}>
+                      <PencilIcon />
+                    </RowAction>
+                    <RowAction label="Réinitialiser le mot de passe" onClick={() => handleReset(u)}>
+                      <KeyRoundIcon />
+                    </RowAction>
                   </div>
                 </td>
               </tr>
