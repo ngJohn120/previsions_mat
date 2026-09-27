@@ -23,7 +23,7 @@ type Attr = {
   enseignant: string;
   statut: string | null;
 };
-type Option = { id: string; name: string; branche_id?: string };
+type Option = { id: string; name: string; branche_id?: string; classe_id?: string | null; classe?: string | null };
 type TeacherOption = { id: string; full_name: string };
 
 function statutChip(statut: string | null) {
@@ -66,7 +66,17 @@ export function AttributionsManager({
   const [enseignantFilter, setEnseignantFilter] = useState("");
 
   const sectionLabel = section === "primaire" ? "Primaire" : "Secondaire";
-  const filteredSous = sousOptions.filter((s) => s.branche_id === brancheId);
+  // Sous-branches of the selected cours, limited to the ones that exist for the
+  // selected class (a same-named sous-branche can exist per class; NULL = partagée
+  // and always offered). Without this the list repeats a name once per class.
+  const filteredSous = sousOptions.filter(
+    (s) => s.branche_id === brancheId && (!s.classe_id || !classeId || s.classe_id === classeId)
+  );
+  const classNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of classOptions) m.set(c.id, c.name);
+    return m;
+  }, [classOptions]);
 
   // Already-assigned sous-branches for the selected classe+cours (create mode):
   // disabled in the checkbox list so the unique constraint can't be hit.
@@ -272,6 +282,11 @@ export function AttributionsManager({
                 <div className="mt-1 max-h-32 space-y-1 overflow-y-auto rounded-md border border-slate-200 px-3 py-2">
                   {filteredSous.map((s) => {
                     const takenBy = takenSous.get(s.id);
+                    // A class-bound sous-branche always matches the selected class
+                    // here, so the suffix is only informative for shared ones.
+                    const scope = s.classe_id
+                      ? classNameById.get(s.classe_id) ?? null
+                      : "toutes classes";
                     return (
                       <label
                         key={s.id}
@@ -285,10 +300,19 @@ export function AttributionsManager({
                           disabled={!!takenBy}
                           onChange={(e) => toggleSous(s.id, e.target.checked)}
                         />
-                        <span>{s.name}{takenBy ? ` (déjà : ${takenBy})` : ""}</span>
+                        <span>
+                          {s.name}
+                          {scope ? <span className="text-xs text-slate-400"> · {scope}</span> : null}
+                          {takenBy ? ` (déjà : ${takenBy})` : ""}
+                        </span>
                       </label>
                     );
                   })}
+                  {filteredSous.length === 0 && (
+                    <p className="py-1 text-center text-xs text-slate-400">
+                      Aucune sous-branche pour cette classe — choisissez un autre cours ou créez-la dans Branches.
+                    </p>
+                  )}
                 </div>
                 <p className="mt-1 text-[11px] text-slate-500">Cochez une ou plusieurs sous-branches — une attribution et sa fiche seront créées pour chacune.</p>
               </div>

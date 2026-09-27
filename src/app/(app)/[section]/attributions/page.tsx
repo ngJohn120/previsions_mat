@@ -50,7 +50,9 @@ export default async function AttributionsPage({
   // Lookups: classes, branches, sous_branches, fiches statut, profiles
   const { data: classes } = await supabase.from("classes").select("id, name, section").eq("school_year_id", yearId);
   const { data: branches } = await supabase.from("branches").select("id, name, sections");
-  const { data: sous } = await supabase.from("sous_branches").select("id, name, branche_id");
+  const { data: sous } = await supabase
+    .from("sous_branches")
+    .select("id, name, branche_id, classe_id");
   const { data: fiches } = await supabase.from("fiches").select("id, attribution_id, statut");
   // No FK between user_roles and profiles, so fetch roles then names separately.
   // Roster-filtered: only teachers active for the selected year are choosable.
@@ -109,7 +111,11 @@ export default async function AttributionsPage({
   // Options for dialog
   const classOptions = (classes ?? []).filter((c: any) => c.section === section).map((c: any) => ({ id: c.id, name: c.name }));
   const branchOptions = (branches ?? []).filter((b: any) => (b.sections ?? []).includes(section)).map((b: any) => ({ id: b.id, name: b.name }));
-  const sousOptions = (sous ?? []).filter((s: any) => branchOptions.some((b: any) => b.id === s.branche_id)).map((s: any) => ({ id: s.id, name: s.name, branche_id: s.branche_id }));
+  // `classe_id` travels with each sous-branche so the dialog can offer only the
+  // ones that exist for the selected class (NULL = partagée, all classes).
+  const sousOptions = (sous ?? [])
+    .filter((s: any) => branchOptions.some((b: any) => b.id === s.branche_id))
+    .map((s: any) => ({ id: s.id, name: s.name, branche_id: s.branche_id, classe_id: s.classe_id ?? null }));
   const teacherOptions = activeTeacherRoles.map((t: { user_id: string }) => ({ id: t.user_id, full_name: teacherNameById.get(t.user_id) ?? "—" }));
 
   return (
