@@ -9,6 +9,9 @@ import { validateBranchesCsv, type CsvRow } from "@/lib/csv";
 type Result = { error?: string };
 export type ImportResult = { created: number; errors: string[] };
 
+/** Sous-branche payload from the manager — `id` present = existing row (keep its identity). */
+export type SousBranchePayload = { id?: string; name: string; classe_id: string | null };
+
 /** Sections the current user may manage (super → both, section admin → own). */
 async function manageableSections(): Promise<Section[] | null> {
   const user = await getSessionUser();
@@ -41,16 +44,44 @@ async function requireBranchesAccess(): Promise<{ scope: Section[] } | null> {
   return { scope };
 }
 
+/** Sous-branches live on the primaire side — their classe, when set, must be a primaire class. */
+async function validateSousBrancheClasses(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  classeIds: (string | null)[]
+): Promise<string | null> {
+  const unique = [...new Set(classeIds.filter(Boolean))] as string[];
+  if (!unique.length) return null;
+  const { data } = await supabase.from("classes").select("id, section").in("id", unique);
+  const byId = new Map((data ?? []).map((c: { id: string; section: string }) => [c.id, c.section]));
+  for (const id of unique) {
+    if (!byId.has(id)) return "Classe introuvable pour une des sous-branches.";
+    if (byId.get(id) !== "primaire") return "Une sous-branche ne peut être liée qu'à une classe du primaire.";
+  }
+  return null;
+}
+
+function friendlySousError(name: string, error: { code?: string; message: string }): string {
+  if (error.code === "23505") return `Sous-branche « ${name} » : ce nom existe déjà pour cette classe.`;
+  return `Sous-branche « ${name} » : ${error.message}`;
+}
+
 export async function createBranche(input: {
   name: string;
   sections: ("primaire" | "secondaire")[];
-  sous_branches?: string[];
+  sous_branches?: SousBranchePayload[];
 }): Promise<Result> {
   const access = await requireBranchesAccess();
   if (!access) return { error: "Accès refusé." };
   if (!input.name.trim()) return { error: "Le nom de la branche est obligatoire." };
   const sections = clampSections(input.sections as string[], access.scope);
   const supabase = await createClient();
+
+  const rows = (input.sous_branches ?? [])
+    .map((r) => ({ name: r.name.trim(), classe_id: r.classe_id || null }))
+    .filter((r) => r.name);
+  const classErr = await validateSousBrancheClasses(supabase, rows.map((r) => r.classe_id));
+  if (classErr) return { error: classErr };
+
   const { data, error } = await supabase
     .from("branches")
     .insert({ name: input.name.trim(), sections })
@@ -59,12 +90,11 @@ export async function createBranche(input: {
   if (error) return { error: error.message };
 
   // Sous-branches
-  for (const sb of input.sous_branches ?? []) {
-    if (!sb.trim()) continue;
+  for (const r of rows) {
     const { error: sbErr } = await supabase
       .from("sous_branches")
-      .insert({ branche_id: data.id, name: sb.trim() });
-    if (sbErr) return { error: `Sous-branche : ${sbErr.message}` };
+      .insert({ branche_id: data.id, name: r.name, classe_id: r.classe_id });
+    if (sbErr) return { error: friendlySousError(r.name, sbErr) };
   }
 
   revalidatePath("/admin/branches");
@@ -75,7 +105,7 @@ export async function updateBranche(input: {
   id: string;
   name: string;
   sections: ("primaire" | "secondaire")[];
-  sous_branches: string[]; // full list of names to replace
+  sous_branches: SousBranchePayload[]; // full list; id present = existing row to keep
 }): Promise<Result> {
   const access = await requireBranchesAccess();
   if (!access) return { error: "Accès refusé." };
@@ -92,6 +122,12 @@ export async function updateBranche(input: {
     return { error: "Cette branche ne fait pas partie de votre section." };
   }
 
+  const rows = input.sous_branches
+    .map((r) => ({ id: r.id ?? null, name: r.name.trim(), classe_id: r.classe_id || null }))
+    .filter((r) => r.name);
+  const classErr = await validateSousBrancheClasses(supabase, rows.map((r) => r.classe_id));
+  if (classErr) return { error: classErr };
+
   // Final sections = whatever the branch already had OUTSIDE this admin's scope
   // (a shared branch stays shared) + the in-scope sections they're submitting.
   const keptOutside = existingSections.filter((s) => !access.scope.includes(s));
@@ -103,15 +139,38 @@ export async function updateBranche(input: {
     .eq("id", input.id);
   if (error) return { error: error.message };
 
-  // Replace sous-branches: delete existing then re-insert (simple; in-use ones will warn at DB level)
-  const { data: existing } = await supabase.from("sous_branches").select("id").eq("branche_id", input.id);
+  // Diff instead of wipe-and-reinsert: a row that keeps its id keeps its
+  // identity (attributions referencing it are not reset), a changed name or
+  // classe is an UPDATE, only actually-removed rows are deleted.
+  const { data: existing } = await supabase
+    .from("sous_branches")
+    .select("id, name, classe_id")
+    .eq("branche_id", input.id);
+  const existingById = new Map(
+    (existing ?? []).map((e: { id: string; name: string; classe_id: string | null }) => [e.id, e])
+  );
+  const keptIds = new Set(rows.map((r) => r.id).filter(Boolean) as string[]);
   for (const e of existing ?? []) {
-    // If a sous-branche is referenced by attributions, delete will fail via FK restrict? (set null) — we allow set null
-    await supabase.from("sous_branches").delete().eq("id", e.id);
+    if (!keptIds.has(e.id)) {
+      await supabase.from("sous_branches").delete().eq("id", e.id);
+    }
   }
-  for (const sb of input.sous_branches) {
-    if (!sb.trim()) continue;
-    await supabase.from("sous_branches").insert({ branche_id: input.id, name: sb.trim() });
+  for (const r of rows) {
+    const prev = r.id ? existingById.get(r.id) : undefined;
+    if (r.id && prev) {
+      if (prev.name !== r.name || (prev.classe_id ?? null) !== r.classe_id) {
+        const { error: sbErr } = await supabase
+          .from("sous_branches")
+          .update({ name: r.name, classe_id: r.classe_id })
+          .eq("id", r.id);
+        if (sbErr) return { error: friendlySousError(r.name, sbErr) };
+      }
+    } else {
+      const { error: sbErr } = await supabase
+        .from("sous_branches")
+        .insert({ branche_id: input.id, name: r.name, classe_id: r.classe_id });
+      if (sbErr) return { error: friendlySousError(r.name, sbErr) };
+    }
   }
 
   revalidatePath("/admin/branches");
