@@ -35,12 +35,16 @@ export default async function BranchesPage() {
     (years ?? []).find((y: { status: string }) => y.status === "active") ??
     (years ?? [])[0] ?? null;
 
-  const { data: branches } = await supabase.from("branches").select("id, name, sections").order("name");
+  const { data: branches } = await supabase
+    .from("branches")
+    .select("id, name, sections, classe_id")
+    .order("name");
   const { data: sous } = await supabase.from("sous_branches").select("id, branche_id, name, classe_id").order("name");
 
-  // « Classe » choices for the sous-branches modal: primaire classes of the
-  // selected year. Sous-branches may also point at classes from other years —
-  // keep their names so the table and the edit select never lose a binding.
+  // « Classe » choices for the modal: primaire classes of the selected year.
+  // A binding may point at a class from another year (a branch without
+  // sous-branches, or a sous-branche) — keep those names so the table and
+  // the edit select never lose a binding.
   const { data: yearClasses } = selectedYear
     ? await supabase
         .from("classes")
@@ -50,7 +54,14 @@ export default async function BranchesPage() {
         .order("ordre")
         .order("name")
     : { data: [] };
-  const boundIds = [...new Set((sous ?? []).map((s: { classe_id: string | null }) => s.classe_id).filter(Boolean))] as string[];
+  const boundIds = [
+    ...new Set(
+      [
+        ...(sous ?? []).map((s: { classe_id: string | null }) => s.classe_id),
+        ...(branches ?? []).map((b: { classe_id: string | null }) => b.classe_id),
+      ].filter(Boolean)
+    ),
+  ] as string[];
   const knownIds = new Set((yearClasses ?? []).map((c: { id: string }) => c.id));
   const missingIds = boundIds.filter((id) => !knownIds.has(id));
   const { data: extraClasses } = missingIds.length
@@ -79,10 +90,12 @@ export default async function BranchesPage() {
   const inScope = (sections: string[]) => sections.some((s) => (scope as string[]).includes(s));
   const items = (branches ?? [])
     .filter((b: { sections: string[] | null }) => inScope(b.sections ?? []))
-    .map((b: { id: string; name: string; sections: string[] | null }) => ({
+    .map((b: { id: string; name: string; sections: string[] | null; classe_id: string | null }) => ({
       id: b.id,
       name: b.name,
       sections: (b.sections ?? []) as string[],
+      classe_id: b.classe_id ?? null,
+      classe: b.classe_id ? classeNameById.get(b.classe_id) ?? "—" : null,
       sous_branches: sbByBranch.get(b.id) ?? [],
     }));
 

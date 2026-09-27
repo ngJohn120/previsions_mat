@@ -12,6 +12,22 @@ export type ImportResult = { created: number; errors: string[] };
 /** Sous-branche payload from the manager — `id` present = existing row (keep its identity). */
 export type SousBranchePayload = { id?: string; name: string; classe_id: string | null };
 
+/** Normalize + validate the class links a save carries (branch itself and its sous-branches). */
+async function validateClassLinks(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  classeIds: (string | null)[]
+): Promise<string | null> {
+  const unique = [...new Set(classeIds.filter(Boolean))] as string[];
+  if (!unique.length) return null;
+  const { data } = await supabase.from("classes").select("id, section").in("id", unique);
+  const byId = new Map((data ?? []).map((c: { id: string; section: string }) => [c.id, c.section]));
+  for (const id of unique) {
+    if (!byId.has(id)) return "Classe introuvable.";
+    if (byId.get(id) !== "primaire") return "Une branche ou sous-branche ne peut être liée qu'à une classe du primaire.";
+  }
+  return null;
+}
+
 /** Sections the current user may manage (super → both, section admin → own). */
 async function manageableSections(): Promise<Section[] | null> {
   const user = await getSessionUser();
@@ -44,22 +60,6 @@ async function requireBranchesAccess(): Promise<{ scope: Section[] } | null> {
   return { scope };
 }
 
-/** Sous-branches live on the primaire side — their classe, when set, must be a primaire class. */
-async function validateSousBrancheClasses(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  classeIds: (string | null)[]
-): Promise<string | null> {
-  const unique = [...new Set(classeIds.filter(Boolean))] as string[];
-  if (!unique.length) return null;
-  const { data } = await supabase.from("classes").select("id, section").in("id", unique);
-  const byId = new Map((data ?? []).map((c: { id: string; section: string }) => [c.id, c.section]));
-  for (const id of unique) {
-    if (!byId.has(id)) return "Classe introuvable pour une des sous-branches.";
-    if (byId.get(id) !== "primaire") return "Une sous-branche ne peut être liée qu'à une classe du primaire.";
-  }
-  return null;
-}
-
 function friendlySousError(name: string, error: { code?: string; message: string }): string {
   if (error.code === "23505") return `Sous-branche « ${name} » : ce nom existe déjà pour cette classe.`;
   return `Sous-branche « ${name} » : ${error.message}`;
@@ -68,6 +68,7 @@ function friendlySousError(name: string, error: { code?: string; message: string
 export async function createBranche(input: {
   name: string;
   sections: ("primaire" | "secondaire")[];
+  classe_id?: string | null;
   sous_branches?: SousBranchePayload[];
 }): Promise<Result> {
   const access = await requireBranchesAccess();
@@ -79,12 +80,13 @@ export async function createBranche(input: {
   const rows = (input.sous_branches ?? [])
     .map((r) => ({ name: r.name.trim(), classe_id: r.classe_id || null }))
     .filter((r) => r.name);
-  const classErr = await validateSousBrancheClasses(supabase, rows.map((r) => r.classe_id));
+  const branchClasse = input.classe_id || null;
+  const classErr = await validateClassLinks(supabase, [branchClasse, ...rows.map((r) => r.classe_id)]);
   if (classErr) return { error: classErr };
 
   const { data, error } = await supabase
     .from("branches")
-    .insert({ name: input.name.trim(), sections })
+    .insert({ name: input.name.trim(), sections, classe_id: branchClasse })
     .select("id")
     .single();
   if (error) return { error: error.message };
@@ -105,6 +107,7 @@ export async function updateBranche(input: {
   id: string;
   name: string;
   sections: ("primaire" | "secondaire")[];
+  classe_id?: string | null;
   sous_branches: SousBranchePayload[]; // full list; id present = existing row to keep
 }): Promise<Result> {
   const access = await requireBranchesAccess();
@@ -125,7 +128,8 @@ export async function updateBranche(input: {
   const rows = input.sous_branches
     .map((r) => ({ id: r.id ?? null, name: r.name.trim(), classe_id: r.classe_id || null }))
     .filter((r) => r.name);
-  const classErr = await validateSousBrancheClasses(supabase, rows.map((r) => r.classe_id));
+  const branchClasse = input.classe_id || null;
+  const classErr = await validateClassLinks(supabase, [branchClasse, ...rows.map((r) => r.classe_id)]);
   if (classErr) return { error: classErr };
 
   // Final sections = whatever the branch already had OUTSIDE this admin's scope
@@ -135,7 +139,7 @@ export async function updateBranche(input: {
   const sections = Array.from(new Set([...keptOutside, ...changedInside]));
   const { error } = await supabase
     .from("branches")
-    .update({ name: input.name.trim(), sections })
+    .update({ name: input.name.trim(), sections, classe_id: branchClasse })
     .eq("id", input.id);
   if (error) return { error: error.message };
 

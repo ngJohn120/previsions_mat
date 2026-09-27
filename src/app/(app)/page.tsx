@@ -1,6 +1,10 @@
 import { getSessionUser, isSuperAdmin, isSectionAdmin } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { createClient } from "@/lib/supabase/server";
 import { signOut } from "../actions";
+
+const YEAR_COOKIE = "pm_year";
 
 function roleLabel(user: NonNullable<Awaited<ReturnType<typeof getSessionUser>>>) {
   const labels: Record<string, string> = {
@@ -13,6 +17,34 @@ function roleLabel(user: NonNullable<Awaited<ReturnType<typeof getSessionUser>>>
   return user.roles.map((r) => labels[r.role] ?? r.role).join(" · ");
 }
 
+/** Classes the signed-in teacher actually teaches, for the selected year
+ *  (top-bar switcher cookie, else the active year). `null` for non-teachers. */
+async function teacherClasses(
+  userId: string,
+  isTeacher: boolean
+): Promise<string[] | null> {
+  if (!isTeacher) return null;
+  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const cookieYear = cookieStore.get(YEAR_COOKIE)?.value;
+  const { data: years } = await supabase.from("school_years").select("id, status");
+  const yearId =
+    (years ?? []).find((y: { id: string }) => y.id === cookieYear)?.id ??
+    (years ?? []).find((y: { status: string }) => y.status === "active")?.id ??
+    (years ?? [])[0]?.id;
+  if (!yearId) return [];
+  const { data: attribs } = await supabase
+    .from("attributions")
+    .select("classe:classes(name)")
+    .eq("school_year_id", yearId)
+    .eq("enseignant_id", userId)
+    .returns<{ classe: { name: string } | null }[]>();
+  const names = (attribs ?? [])
+    .map((a) => a.classe?.name)
+    .filter((n): n is string => Boolean(n));
+  return [...new Set(names)].sort((a, b) => a.localeCompare(b));
+}
+
 export default async function Home() {
   const user = await getSessionUser();
 
@@ -23,6 +55,8 @@ export default async function Home() {
   const superAdmin = isSuperAdmin(user.roles);
   const adminPrim = isSectionAdmin(user.roles, "primaire");
   const adminSec = isSectionAdmin(user.roles, "secondaire");
+  const isTeacher = user.roles.some((r) => r.role === "enseignant");
+  const classes = await teacherClasses(user.id, isTeacher);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 p-6">
@@ -45,6 +79,14 @@ export default async function Home() {
           <div>
             Rôle : <span className="font-semibold">{roleLabel(user)}</span>
           </div>
+          {classes && (
+            <div>
+              Classe{classes.length > 1 ? "s" : ""} :{" "}
+              <span className="font-semibold">
+                {classes.length ? classes.join(" · ") : "aucune classe attribuée"}
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="mt-6 flex flex-col gap-2 text-sm">
