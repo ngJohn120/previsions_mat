@@ -25,6 +25,16 @@ export function groupSousByName(rows: SousRowInput[]): SousGroup[] {
   return [...byName.values()];
 }
 
+/** One class selection of a modal row, with the id of the existing row it maps
+ *  to (undefined = a class that does not exist yet in storage). */
+export type SousEntry = { classeId: string; id?: string };
+
+/** Apply a new class selection to a row, keeping the id of every class that
+ *  survives (so an unchanged save updates in place instead of recreating). */
+export function mergeSousEntries(entries: SousEntry[], classeIds: string[]): SousEntry[] {
+  return classeIds.map((classeId) => entries.find((e) => e.classeId === classeId) ?? { classeId });
+}
+
 /** Expand UI rows (one per name) into storage rows (one per name+classe). */
 export function expandSousRows(rows: SousRowInput[]): SousRowInput[] {
   const out: SousRowInput[] = [];

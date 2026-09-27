@@ -102,8 +102,12 @@ export default async function AttributionsPage({
       sous_branche_id: a.sous_branche_id,
       classe: classById.get(a.classe_id)?.name ?? "—",
       classe_section: classById.get(a.classe_id)?.section ?? section,
-      branche: branchById.get(a.branche_id) ?? "—",
-      sous_branche: a.sous_branche_id ? sousById.get(a.sous_branche_id) ?? "—" : null,
+      // A branch-less subject (0017) has no parent: the sous-branche IS the
+      // cours, so display its name (the column already reads « Cours »).
+      branche: (a.branche_id ? branchById.get(a.branche_id) : null) ?? (a.sous_branche_id ? sousById.get(a.sous_branche_id) : null) ?? "—",
+      // A branch-less subject (0017) is stored as its own sous-branche, but it
+      // IS the cours — showing it twice would be noise.
+      sous_branche: a.branche_id ? (a.sous_branche_id ? sousById.get(a.sous_branche_id) ?? "—" : null) : null,
       enseignant: teacherById.get(a.enseignant_id) ?? "—",
       statut: ficheByAttr.get(a.id) ?? null, // null = no fiche yet
     }));
@@ -114,8 +118,11 @@ export default async function AttributionsPage({
   // `classe_id` travels with each sous-branche so the dialog can offer only the
   // ones that exist for the selected class (NULL = partagée, all classes).
   const sousOptions = (sous ?? [])
-    .filter((s: any) => branchOptions.some((b: any) => b.id === s.branche_id))
-    .map((s: any) => ({ id: s.id, name: s.name, branche_id: s.branche_id, classe_id: s.classe_id ?? null }));
+    .map((s: any) => ({ id: s.id, name: s.name, branche_id: s.branche_id ?? null, classe_id: s.classe_id ?? null }));
+  // Subjects with NO parent branch (0017). One entry PER storage row (the same
+  // subject can exist for several classes); the dialog shows one checkbox per
+  // class and scopes them by the selected class.
+  const orphanSubjects = sousOptions.filter((s: any) => !s.branche_id);
   const teacherOptions = activeTeacherRoles.map((t: { user_id: string }) => ({ id: t.user_id, full_name: teacherNameById.get(t.user_id) ?? "—" }));
 
   return (
@@ -126,6 +133,7 @@ export default async function AttributionsPage({
       items={items}
       classOptions={classOptions}
       branchOptions={branchOptions}
+      orphanSubjects={orphanSubjects}
       sousOptions={sousOptions}
       teacherOptions={teacherOptions}
       orphanAttrIds={orphanAttrIds}

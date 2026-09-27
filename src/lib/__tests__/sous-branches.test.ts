@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { groupSousByName, expandSousRows } from "@/lib/sous-branches";
+import { groupSousByName, expandSousRows, mergeSousEntries } from "@/lib/sous-branches";
 
 describe("groupSousByName", () => {
   it("merges duplicate names and collects their classes", () => {
@@ -36,6 +36,27 @@ describe("groupSousByName", () => {
       { id: "s2", name: "Grammaire", classe_id: "c2" },
     ]);
     expect(g[0].ids).toEqual(["s1", "s2"]);
+  });
+});
+
+describe("mergeSousEntries", () => {
+  it("keeps the id of a class that stays selected", () => {
+    const out = mergeSousEntries([{ classeId: "c1", id: "s1" }], ["c1"]);
+    expect(out).toEqual([{ classeId: "c1", id: "s1" }]);
+  });
+
+  it("gives no id to a newly selected class", () => {
+    const out = mergeSousEntries([{ classeId: "c1", id: "s1" }], ["c1", "c2"]);
+    expect(out).toEqual([{ classeId: "c1", id: "s1" }, { classeId: "c2" }]);
+  });
+
+  it("drops the entries whose class was un-ticked (they get deleted server-side)", () => {
+    const out = mergeSousEntries([{ classeId: "c1", id: "s1" }, { classeId: "c2", id: "s2" }], ["c2"]);
+    expect(out).toEqual([{ classeId: "c2", id: "s2" }]);
+  });
+
+  it("empty selection yields nothing (shared row when re-expanded)", () => {
+    expect(mergeSousEntries([{ classeId: "c1", id: "s1" }], [])).toEqual([]);
   });
 });
 

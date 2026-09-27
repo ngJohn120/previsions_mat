@@ -45,7 +45,8 @@ export async function createAttribution(input: {
   school_year_id: string;
   section: "primaire" | "secondaire";
   classe_id: string;
-  branche_id: string;
+  /** Null for a subject with no parent branch (0017). */
+  branche_id: string | null;
   sous_branche_ids?: string[] | null;
   enseignant_id: string;
 }): Promise<Result & { created?: number }> {
@@ -70,12 +71,16 @@ export async function createAttribution(input: {
   const requested = [...new Set((input.sous_branche_ids ?? []).map((s) => s.trim()).filter(Boolean))];
   let toCreate: (string | null)[] = [null];
   if (requested.length > 0) {
-    const { data: existing } = await supabase
+    // `.eq` on a null column never matches — a branch-less subject must use
+    // `.is()` or its duplicate guard silently finds nothing.
+    const byBranch = supabase
       .from("attributions")
       .select("sous_branche_id")
       .eq("school_year_id", input.school_year_id)
-      .eq("classe_id", input.classe_id)
-      .eq("branche_id", input.branche_id);
+      .eq("classe_id", input.classe_id);
+    const { data: existing } = input.branche_id
+      ? await byBranch.eq("branche_id", input.branche_id)
+      : await byBranch.is("branche_id", null);
     const takenIds = new Set(
       (existing ?? []).map((r: { sous_branche_id: string | null }) => r.sous_branche_id).filter(Boolean)
     );
@@ -169,7 +174,8 @@ export async function updateAttribution(input: {
   id: string;
   section: "primaire" | "secondaire";
   classe_id: string;
-  branche_id: string;
+  /** Null for a subject with no parent branch (0017). */
+  branche_id: string | null;
   sous_branche_id?: string | null;
   enseignant_id: string;
 }): Promise<Result> {

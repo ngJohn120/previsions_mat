@@ -9,6 +9,9 @@ import { validateBranchesCsv, type CsvRow } from "@/lib/csv";
 type Result = { error?: string };
 export type ImportResult = { created: number; errors: string[] };
 
+/** Sentinel id used by the manager for subjects with no parent branch (0017). */
+const NO_BRANCH = "__sans_branche__";
+
 /** Sous-branche payload from the manager — `id` present = existing row (keep its identity). */
 export type SousBranchePayload = { id?: string; name: string; classe_id: string | null };
 
@@ -69,6 +72,9 @@ export async function createBranche(input: {
   name: string;
   sections: ("primaire" | "secondaire")[];
   classe_ids?: string[];
+  /** Null ⇒ a subject with no parent branch (migration 0017): the name is the
+   *  subject itself, and its sous-branches stand alone. */
+  id?: string | null;
   sous_branches?: SousBranchePayload[];
 }): Promise<Result> {
   const access = await requireBranchesAccess();
@@ -84,18 +90,25 @@ export async function createBranche(input: {
   const classErr = await validateClassLinks(supabase, [...branchClasses, ...rows.map((r) => r.classe_id)]);
   if (classErr) return { error: classErr };
 
-  const { data, error } = await supabase
-    .from("branches")
-    .insert({ name: input.name.trim(), sections })
-    .select("id")
-    .single();
-  if (error) return { error: error.message };
+  // « sans branche » mode (migration 0017): no branches row at all, the
+  // sous-branches stand alone as subjects.
+  const sansBranche = input.id === NO_BRANCH;
+  let brancheId: string | null = null;
+  if (!sansBranche) {
+    const { data, error } = await supabase
+      .from("branches")
+      .insert({ name: input.name.trim(), sections })
+      .select("id")
+      .single();
+    if (error) return { error: error.message };
+    brancheId = data.id;
+  }
 
   // Classes directly attached to the branch (link table, 0016)
-  if (branchClasses.length) {
+  if (brancheId && branchClasses.length) {
     const { error: bcErr } = await supabase
       .from("branch_classes")
-      .insert(branchClasses.map((classe_id) => ({ branche_id: data.id, classe_id })));
+      .insert(branchClasses.map((classe_id) => ({ branche_id: brancheId as string, classe_id })));
     if (bcErr) return { error: `Classe : ${bcErr.message}` };
   }
 
@@ -103,12 +116,55 @@ export async function createBranche(input: {
   for (const r of rows) {
     const { error: sbErr } = await supabase
       .from("sous_branches")
-      .insert({ branche_id: data.id, name: r.name, classe_id: r.classe_id });
+      .insert({ branche_id: brancheId, name: r.name, classe_id: r.classe_id });
     if (sbErr) return { error: friendlySousError(r.name, sbErr) };
   }
 
   revalidatePath("/admin/branches");
   return {};
+}
+
+/**
+ * Apply a sous-branche diff for one branch: rows keep their id (so attribution
+ * links survive), a changed name/classe is an UPDATE, removed rows are deleted.
+ * `brancheId` null = the branch-less subjects (migration 0017).
+ */
+async function syncSousBranches(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  brancheId: string | null,
+  rows: { id: string | null; name: string; classe_id: string | null }[]
+): Promise<string | null> {
+  const query = supabase.from("sous_branches").select("id, name, classe_id");
+  const { data: existing } = brancheId
+    ? await query.eq("branche_id", brancheId)
+    : await query.is("branche_id", null);
+  const existingById = new Map(
+    (existing ?? []).map((e: { id: string; name: string; classe_id: string | null }) => [e.id, e])
+  );
+  const keptIds = new Set(rows.map((r) => r.id).filter(Boolean) as string[]);
+  for (const e of existing ?? []) {
+    if (!keptIds.has(e.id)) {
+      await supabase.from("sous_branches").delete().eq("id", e.id);
+    }
+  }
+  for (const r of rows) {
+    const prev = r.id ? existingById.get(r.id) : undefined;
+    if (r.id && prev) {
+      if (prev.name !== r.name || (prev.classe_id ?? null) !== r.classe_id) {
+        const { error: sbErr } = await supabase
+          .from("sous_branches")
+          .update({ name: r.name, classe_id: r.classe_id })
+          .eq("id", r.id);
+        if (sbErr) return friendlySousError(r.name, sbErr);
+      }
+    } else {
+      const { error: sbErr } = await supabase
+        .from("sous_branches")
+        .insert({ branche_id: brancheId, name: r.name, classe_id: r.classe_id });
+      if (sbErr) return friendlySousError(r.name, sbErr);
+    }
+  }
+  return null;
 }
 
 export async function updateBranche(input: {
@@ -121,6 +177,20 @@ export async function updateBranche(input: {
   const access = await requireBranchesAccess();
   if (!access) return { error: "Accès refusé." };
   const supabase = await createClient();
+
+  // « sans branche » (0017): there is no branches row to update — only the
+  // standalone sous-branches (subjects) are managed here.
+  if (input.id === NO_BRANCH) {
+    const rowsOnly = input.sous_branches
+      .map((r) => ({ id: r.id ?? null, name: r.name.trim(), classe_id: r.classe_id || null }))
+      .filter((r) => r.name);
+    const onlyErr = await validateClassLinks(supabase, rowsOnly.map((r) => r.classe_id));
+    if (onlyErr) return { error: onlyErr };
+    const diffErr = await syncSousBranches(supabase, null, rowsOnly);
+    if (diffErr) return { error: diffErr };
+    revalidatePath("/admin/branches");
+    return {};
+  }
 
   // Section admins may only edit branches that belong to their own section(s).
   const { data: existingRow } = await supabase
@@ -179,36 +249,8 @@ export async function updateBranche(input: {
   // Diff instead of wipe-and-reinsert: a row that keeps its id keeps its
   // identity (attributions referencing it are not reset), a changed name or
   // classe is an UPDATE, only actually-removed rows are deleted.
-  const { data: existing } = await supabase
-    .from("sous_branches")
-    .select("id, name, classe_id")
-    .eq("branche_id", input.id);
-  const existingById = new Map(
-    (existing ?? []).map((e: { id: string; name: string; classe_id: string | null }) => [e.id, e])
-  );
-  const keptIds = new Set(rows.map((r) => r.id).filter(Boolean) as string[]);
-  for (const e of existing ?? []) {
-    if (!keptIds.has(e.id)) {
-      await supabase.from("sous_branches").delete().eq("id", e.id);
-    }
-  }
-  for (const r of rows) {
-    const prev = r.id ? existingById.get(r.id) : undefined;
-    if (r.id && prev) {
-      if (prev.name !== r.name || (prev.classe_id ?? null) !== r.classe_id) {
-        const { error: sbErr } = await supabase
-          .from("sous_branches")
-          .update({ name: r.name, classe_id: r.classe_id })
-          .eq("id", r.id);
-        if (sbErr) return { error: friendlySousError(r.name, sbErr) };
-      }
-    } else {
-      const { error: sbErr } = await supabase
-        .from("sous_branches")
-        .insert({ branche_id: input.id, name: r.name, classe_id: r.classe_id });
-      if (sbErr) return { error: friendlySousError(r.name, sbErr) };
-    }
-  }
+  const diffErr = await syncSousBranches(supabase, input.id, rows);
+  if (diffErr) return { error: diffErr };
 
   revalidatePath("/admin/branches");
   return {};
