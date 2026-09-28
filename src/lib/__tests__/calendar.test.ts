@@ -7,25 +7,47 @@ import {
   type EditRow,
 } from "@/lib/calendar";
 describe("buildWeeks", () => {
-  it("returns weeks starting ON startDate (partial first week), sequential numbering", () => {
-    // Sept 1 2026 is a Tuesday; first week runs 01→04/09 (Tue–Fri)
+  it("aligns every week on Monday→Friday, even when the rentrée is mid-week", () => {
+    // Sept 1 2026 is a Tuesday ⇒ week 1 starts the Monday before, 31/08.
     const weeks = buildWeeks(new Date(2026, 8, 1), new Date(2026, 8, 30));
-    expect(weeks.length).toBe(5);
-    expect(weeks[0].start.getDate()).toBe(1);
+    for (const w of weeks.slice(0, -1)) {
+      expect(w.start.getDay()).toBe(1); // Monday
+      expect(w.end.getDay()).toBe(5); // Friday
+    }
+    expect(weeks[0].start.getDate()).toBe(31); // 31/08 (Mon)
+    expect(weeks[0].start.getMonth()).toBe(7); // August
+    expect(weeks[1].start.getDate()).toBe(7); // 07/09 (Mon)
     expect(weeks[0].semaine_num).toBe(1);
-    expect(weeks[4].semaine_num).toBe(5);
   });
 
-  it("handles a multi-month range with sequential numbering", () => {
+  it("only the LAST week may be clipped by the year end", () => {
+    const weeks = buildWeeks(new Date(2026, 8, 1), new Date(2027, 6, 15)); // a full year
+    for (const w of weeks.slice(0, -1)) {
+      expect([1]).toContain(w.start.getDay());
+      expect([5]).toContain(w.end.getDay());
+    }
+    // The final week simply stops at the year end, whatever weekday that is.
+    const last = weeks[weeks.length - 1];
+    expect(last.end.getDate()).toBe(15);
+  });
+
+  it("keeps a rentrée that IS a Monday as the first day", () => {
+    // Sept 7 2026 is a Monday
+    const weeks = buildWeeks(new Date(2026, 8, 7), new Date(2026, 8, 30));
+    expect(weeks[0].start.getDate()).toBe(7);
+    expect(weeks[0].start.getDay()).toBe(1);
+  });
+
+  it("returns sequential numbering over a multi-month range", () => {
     const weeks = buildWeeks(new Date(2026, 8, 1), new Date(2026, 11, 31));
-    // ~17-18 weeks Sep-Dec
     expect(weeks.length).toBeGreaterThan(15);
     weeks.forEach((w, i) => expect(w.semaine_num).toBe(i + 1));
   });
 
   it("labels month from the week's start date", () => {
     const weeks = buildWeeks(new Date(2026, 8, 1), new Date(2026, 8, 15));
-    expect(weeks[0].mois).toBe("Septembre");
+    expect(weeks[0].mois).toBe("Août"); // week 1 starts 31/08
+    expect(weeks[1].mois).toBe("Septembre");
   });
 });
 
@@ -35,7 +57,8 @@ describe("generateRowsForSection", () => {
     const rows = generateRowsForSection(weeks);
     expect(rows.length).toBe(weeks.length);
     expect(rows[0].row_type).toBe("enseignement");
-    expect(rows[0].mois).toBe("Septembre");
+    // Week 1 starts on the Monday before the rentrée (31/08) ⇒ « Août ».
+    expect(rows[0].mois).toBe("Août");
     expect(rows[0].semaine_num).toBe(1);
     expect(rows[0].date_label).toContain("2026");
   });

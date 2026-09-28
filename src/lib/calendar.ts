@@ -21,19 +21,29 @@ export function fmt(d: Date): string {
   return `${dd}/${mm}/${yyyy}`;
 }
 
-/** School weeks between startDate and endDate inclusive, starting ON startDate
- *  (partial first week if startDate isn't a Monday), each week Mon–Fri-ish range.
- *  Matches the paper forms which start numbering from the rentrée date. */
+/**
+ * School weeks between startDate and endDate inclusive.
+ *
+ * A school week runs MONDAY → FRIDAY. The first week starts on the Monday ON OR
+ * BEFORE the rentrée (a startDate that is not a Monday yields a shorter first
+ * week — the rentrée can be mid-week and the week still ends on Friday), and
+ * every following week starts the following Monday.
+ *
+ * Sept 1 2026 is a Tuesday ⇒ week 1 = 31/08 (Mon) → 04/09 (Fri), and week 2
+ * starts 07/09 — never a Tuesday or a Saturday.
+ */
 export function buildWeeks(startDate: Date, endDate: Date): Week[] {
   const weeks: Week[] = [];
-  // First week: from startDate to the following Friday (or endDate if sooner)
+  // Monday on or before startDate: 0 = Sunday … 6 = Saturday.
+  const dow = startDate.getDay();
+  const daysSinceMonday = (dow + 6) % 7;
   let cursor = new Date(startDate);
-  let num = 1;
+  cursor.setDate(cursor.getDate() - daysSinceMonday);
 
-  // Iterate week by week: each week starts on `cursor`, ends on the Friday after
+  let num = 1;
   while (cursor <= endDate) {
     const weekStart = new Date(cursor);
-    // End = start + 4 days (Fri) unless we're at a partial trailing week
+    // End = the Friday of that week (start + 4), clipped by endDate.
     let weekEnd = new Date(cursor);
     weekEnd.setDate(weekEnd.getDate() + 4);
     if (weekEnd > endDate) weekEnd = new Date(endDate);
@@ -46,9 +56,9 @@ export function buildWeeks(startDate: Date, endDate: Date): Week[] {
       mois: MONTHS_FR[moisIdx],
     });
     num++;
-    // Next Monday after this week's end (end day + 3 → Monday if end is Friday)
+    // Next Monday = Friday + 3.
     cursor = new Date(weekEnd);
-    cursor.setDate(cursor.getDate() + 3); // Friday + 3 = Monday
+    cursor.setDate(cursor.getDate() + 3);
   }
   return weeks;
 }
