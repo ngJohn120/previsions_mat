@@ -305,15 +305,15 @@ def make_table(page_rows, section: str, col_widths_mm, header_names, cell_render
     ]
     # Semaine d'événement (primaire) : fond clair + fusion des colonnes matière.
     # La ligne reste une ligne de semaine : on ne fusionne PAS le mois/semaine.
+    EVENT_BG = colors.HexColor("#ededed")
     for i, r in enumerate(page_rows, start=1):
         if r["rowType"] != "evenement":
             continue
+        style.append(("BACKGROUND", (0, i), (-1, i), EVENT_BG))
         if section == "primaire":
-            style.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor("#fbfbf7")))
             style.append(("SPAN", (2, i), (5, i)))
         else:
             # secondaire : bande pleine largeur (disposition approuvée)
-            style.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor("#fbfbf7")))
             style.append(("SPAN", (0, i), (-1, i)))
 
     # fusion mois primaire
