@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createAttribution, updateAttribution, deleteAttribution, importAttributionsCsv } from "@/app/(app)/[section]/attributions/actions";
+import { createAttribution, updateAttribution, deleteAttribution, deleteAttributionsBulk, importAttributionsCsv } from "@/app/(app)/[section]/attributions/actions";
 import { CsvImportDialog } from "@/components/ui/csv-import-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { PencilIcon, Trash2Icon } from "lucide-react";
 import { RowAction } from "@/components/ui/row-action";
+import { BulkSelectHeader, BulkDeleteAction } from "@/components/ui/bulk-select";
 
 type Attr = {
   id: string;
@@ -65,6 +66,8 @@ export function AttributionsManager({
   const [enseignantId, setEnseignantId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Bulk selection: ids of the attributions ticked in the table.
+  const [selected, setSelected] = useState<string[]>([]);
 
   // Table filters
   const [search, setSearch] = useState("");
@@ -188,6 +191,32 @@ export function AttributionsManager({
     setOpen(false); setBusy(false); router.refresh();
   }
 
+  function toggleSelected(id: string) {
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+  function toggleAll(on: boolean) {
+    setSelected(on ? shownItems.map((a) => a.id) : []);
+  }
+
+  async function handleBulkDelete() {
+    if (selected.length === 0) return;
+    const n = selected.length;
+    if (!confirm(`Supprimer ${n} attribution${n > 1 ? "s" : ""} et leur${n > 1 ? "s" : ""} fiche${n > 1 ? "s" : ""} ?`)) return;
+    setBusy(true); setError(null);
+    try {
+      const res = await deleteAttributionsBulk(selected, section as "primaire" | "secondaire");
+      if (res.error) { setError(res.error); setBusy(false); return; }
+      if (res.skipped?.length) {
+        setError(`${res.skipped.length} fiche(s) soumise(s) protégée(s) : non supprimée(s).`);
+      }
+      setSelected([]);
+    } catch {
+      setError("La suppression groupée n'a pas abouti. Vérifiez les attributions restantes, puis réessayez.");
+    }
+    setBusy(false);
+    router.refresh();
+  }
+
   async function handleDelete(a: Attr) {
     if (!confirm(`Supprimer l'attribution ${a.branche} · ${a.classe} ?`)) return;
     const res = await deleteAttribution(a.id, section as "primaire" | "secondaire");
@@ -249,11 +278,29 @@ export function AttributionsManager({
                 ? `${shownItems.length} attribution${shownItems.length > 1 ? "s" : ""} affichée${shownItems.length > 1 ? "s" : ""}`
                 : `${items.length} attribution${items.length > 1 ? "s" : ""}`}
             </span>
+            {canManage && (
+              <BulkDeleteAction
+                count={selected.length}
+                onDelete={handleBulkDelete}
+                onClear={() => setSelected([])}
+                disabled={busy}
+              />
+            )}
           </div>
         )}
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
+              {canManage && (
+                <th className="w-8 px-2 py-3">
+                  <BulkSelectHeader
+                    selected={selected}
+                    total={shownItems.length}
+                    label="les attributions affichées"
+                    onToggleAll={toggleAll}
+                  />
+                </th>
+              )}
               <th className="px-4 py-3">Classe</th>
               <th className="px-4 py-3">Cours</th>
               <th className="px-4 py-3">Sous-branche</th>
@@ -267,6 +314,17 @@ export function AttributionsManager({
               const orphan = (orphanAttrIds ?? []).includes(a.id);
               return (
               <tr key={a.id} className={orphan ? "bg-red-50 hover:bg-red-100/60" : "hover:bg-slate-50"}>
+                {canManage && (
+                  <td className="w-8 px-2 py-3">
+                    <input
+                      type="checkbox"
+                      className="h-3.5 w-3.5 rounded border-slate-300"
+                      checked={selected.includes(a.id)}
+                      onChange={() => toggleSelected(a.id)}
+                      aria-label={`Sélectionner l'attribution ${a.classe} · ${a.branche}`}
+                    />
+                  </td>
+                )}
                 <td className="px-4 py-3 font-semibold text-slate-800">{a.classe}</td>
                 <td className="px-4 py-3">{a.branche}</td>
                 <td className="px-4 py-3 text-slate-500">{a.sous_branche ?? "—"}</td>
@@ -288,7 +346,7 @@ export function AttributionsManager({
               );
             })}
             {shownItems.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+              <tr><td colSpan={5 + (canManage ? 1 : 0)} className="px-4 py-8 text-center text-slate-400">
                 {filterActive
                   ? "Aucune attribution ne correspond aux filtres."
                   : `Aucune attribution · ${sectionLabel}. Cliquez « Nouvelle attribution ».`}

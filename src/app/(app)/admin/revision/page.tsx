@@ -135,8 +135,10 @@ export default async function RevisionPage() {
           userId: r.user_id,
           name: rosterNameOf.get(r.user_id)?.name ?? "—",
           isActive: flagByKey.get(`${r.user_id}:${s}`) ?? true,
-          assignmentCount:
-            (attrCount.get(r.user_id) ?? 0) + (titulCount.get(r.user_id) ?? 0),
+          // « cours » = attributions only; a titulaire de classe is a separate,
+          // honest label (summing both made a teacher with 0 cours read « 1 »).
+          assignmentCount: attrCount.get(r.user_id) ?? 0,
+          titulaireCount: titulCount.get(r.user_id) ?? 0,
           accountDisabled: rosterNameOf.get(r.user_id)?.disabled ?? false,
         }))
         .sort((x, y) => x.name.localeCompare(y.name, "fr"));

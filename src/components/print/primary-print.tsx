@@ -1,4 +1,5 @@
-import type { FicheRow, FicheMeta, FicheStatut } from "@/lib/fiche-types";
+import type { FicheMeta, FicheRow, FicheStatut } from "@/lib/fiche-types";
+import { eventLabelInWeek, monthBlocks, weeksWithEvents } from "@/lib/fiche-events";
 import { PrintSheet } from "@/components/print/print-sheet";
 import { primaryWeekLabel } from "@/lib/print";
 
@@ -35,26 +36,10 @@ export function PrimaryPrint({
 }
 
 function PrimaryGridPrint({ rows }: { rows: FicheRow[] }) {
-  // Group consecutive teaching rows by month into display rows with rowspan.
-  const display: { row: FicheRow; monthLabel: string | null; rowspan: number }[] = [];
-  const teaching = rows.filter((r) => r.row_type === "enseignement");
-  let ti = 0;
-  for (const r of rows) {
-    if (r.row_type === "evenement") {
-      display.push({ row: r, monthLabel: null, rowspan: 0 });
-      continue;
-    }
-    const prev = teaching[ti - 1];
-    const isNewMonth = !prev || prev.mois !== r.mois;
-    let rowspan = 1;
-    if (isNewMonth) {
-      let j = ti;
-      while (j + 1 < teaching.length && teaching[j + 1].mois === r.mois) j++;
-      rowspan = j - ti + 1;
-    }
-    display.push({ row: r, monthLabel: isNewMonth ? r.mois : null, rowspan });
-    ti++;
-  }
+  // Paper-faithful: one row per teaching week, with the event printed in its own
+  // column on the FIRST week it covers (shared with the on-screen grid).
+  const weeks = weeksWithEvents(rows);
+  const months = monthBlocks(weeks.map((w) => w.row));
 
   return (
     <table className="grid">
@@ -69,25 +54,30 @@ function PrimaryGridPrint({ rows }: { rows: FicheRow[] }) {
         </tr>
       </thead>
       <tbody>
-        {display.map((d, idx) =>
-          d.row.row_type === "evenement" ? (
-            <tr key={d.row.id} className="band">
-              <td colSpan={6}>{d.row.periode_label ?? d.row.date_label ?? ""}</td>
-            </tr>
-          ) : (
-            <tr key={d.row.id}>
-              {d.monthLabel !== null && (
-                <td className="mois" rowSpan={d.rowspan}>{d.monthLabel}</td>
+        {weeks.map((w, i) => {
+          const month = months[i];
+          return (
+            <tr key={w.row.id}>
+              {month.label !== null && (
+                <td className="mois" rowSpan={month.rowspan}>{month.label}</td>
               )}
-              <td className="num">{primaryWeekLabel(d.row)}</td>
-              <td className="c">{d.row.cells.matieres?.value ?? ""}</td>
-              <td className="c">{d.row.cells.ref?.value ?? ""}</td>
-              <td className="c">{d.row.cells.intention?.value ?? ""}</td>
-              <td className="c">{d.row.cells.obs?.value ?? ""}</td>
+              <td className="num">{primaryWeekLabel(w.row)}</td>
+              {w.event ? (
+                <td className="c ev" colSpan={4}>
+                  {eventLabelInWeek(w.event, w.row, w.continues)}
+                </td>
+              ) : (
+                <>
+                  <td className="c">{w.row.cells.matieres?.value ?? ""}</td>
+                  <td className="c">{w.row.cells.ref?.value ?? ""}</td>
+                  <td className="c">{w.row.cells.intention?.value ?? ""}</td>
+                  <td className="c">{w.row.cells.obs?.value ?? ""}</td>
+                </>
+              )}
             </tr>
-          )
-        )}
-        {display.length === 0 && (
+          );
+        })}
+        {weeks.length === 0 && (
           <tr><td colSpan={6} className="c">Aucune ligne.</td></tr>
         )}
       </tbody>

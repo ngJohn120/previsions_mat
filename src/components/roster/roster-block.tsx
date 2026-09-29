@@ -11,7 +11,10 @@ export type RosterEntry = {
   userId: string;
   name: string;
   isActive: boolean;
+  /** Attributions (cours taught) — what « N cours » used to claim. */
   assignmentCount: number;
+  /** Classes where the teacher is titulaire — NOT a taught course. */
+  titulaireCount: number;
   accountDisabled: boolean;
 };
 
@@ -89,6 +92,12 @@ export function RosterBlock({
                     <div className="font-semibold text-slate-800">{t.name}</div>
                     <div className="text-[11px] text-slate-500">
                       {t.assignmentCount} cours
+                      {t.titulaireCount > 0 && (
+                        <span title="Classe dont l'enseignant est titulaire — ce n'est pas un cours enseigné">
+                          {" · "}
+                          titulaire de {t.titulaireCount} classe{t.titulaireCount > 1 ? "s" : ""}
+                        </span>
+                      )}
                       {t.accountDisabled && (
                         <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-px font-semibold text-amber-700">
                           Compte désactivé — toujours en poste

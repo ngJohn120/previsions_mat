@@ -197,6 +197,8 @@ html[data-section="secondaire"] {
 .doc table.grid td.num { text-align: center; vertical-align: middle; font-weight: 700; white-space: nowrap; width: 118px; }
 .doc table.grid td.c { min-height: 24px; }
 .doc table.grid tr.band td { font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: .3px; background: #fbfbf7; font-size: 9px; }
+/* Event week: the name spans the teaching area, centered (paper layout). */
+.doc table.grid td.ev { text-align: center; vertical-align: middle; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; background: #fbfbf7; font-size: 9px; }
 .doc table.grid td.dates { text-align: center; vertical-align: middle; white-space: nowrap; width: 150px; }
 .doc table.grid td.heur { text-align: center; vertical-align: middle; width: 50px; }
 .doc table.grid td.mv { width: 130px; }
