@@ -8,7 +8,11 @@ La structure attendue suit le contrat TypeScript `src/lib/pdf-renderer-contract.
       "fiche": {"id": str, "statut": "brouillon" | "soumise"},
       "meta": {"section", "classe", "cours", "sousBranche", "enseignant", "annee"},
       "rows": [{ "ordre", "rowType", "mois", "semaineNum", "dateLabel",
-                 "periodeLabel", "evenementLabel", "cells": {col: str} }]
+                 "eventLabel", "eventKind", "moisRowspan", "cells": {col: str} }]
+
+    NB : la mise en page (placement des événements, fusions de mois) est
+    calculée côté TypeScript et reçue telle quelle — ce module ne décide plus
+    de l'agencement des lignes.
     }
 
 Le rendu (géométrie A4 paysage, polices Source Sans, tableau platypus, fusions
@@ -136,7 +140,7 @@ def split_pages(rows: list[dict], section: str) -> list[list[dict]]:
         return [rows[:idx], rows[idx:]] if 0 < idx < len(rows) else [rows]
     # secondaire: couper après la première bande vacances/Noël
     idx = next((i for i, r in enumerate(rows)
-                if r["rowType"] == "evenement" and re.search(r"noël|fin d'année|vacances", (r.get("periodeLabel") or ""), re.I)),
+                if r["rowType"] == "evenement" and re.search(r"noël|fin d'année|vacances", (r.get("eventLabel") or ""), re.I)),
                len(rows))
     if 0 < idx + 1 < len(rows):
         return [rows[: idx + 1], rows[idx + 1:]]
@@ -259,10 +263,10 @@ def make_table(page_rows, section: str, col_widths_mm, header_names, cell_render
         i = 0
         while i < len(page_rows):
             r = page_rows[i]
-            if r["rowType"] == "enseignement":
-                m = r.get("mois")
+            m = r.get("mois")
+            if m:
                 j = i
-                while j < len(page_rows) and page_rows[j]["rowType"] == "enseignement" and page_rows[j].get("mois") == m:
+                while j < len(page_rows) and page_rows[j].get("mois") == m:
                     j += 1
                 if j - i > 1:
                     # data row offset: header=0, page row i -> data row i+1
@@ -299,9 +303,16 @@ def make_table(page_rows, section: str, col_widths_mm, header_names, cell_render
         ("TOPPADDING", (0, 0), (-1, -1), 2.5),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
     ]
-    # bandes événements : fond clair
+    # Semaine d'événement (primaire) : fond clair + fusion des colonnes matière.
+    # La ligne reste une ligne de semaine : on ne fusionne PAS le mois/semaine.
     for i, r in enumerate(page_rows, start=1):
-        if r["rowType"] == "evenement":
+        if r["rowType"] != "evenement":
+            continue
+        if section == "primaire":
+            style.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor("#fbfbf7")))
+            style.append(("SPAN", (2, i), (5, i)))
+        else:
+            # secondaire : bande pleine largeur (disposition approuvée)
             style.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor("#fbfbf7")))
             style.append(("SPAN", (0, i), (-1, i)))
 
@@ -320,11 +331,21 @@ def p(text, style=cell_style):
 
 
 def render_primary_row(r: dict):
-    if r["rowType"] == "evenement":
-        label = (r.get("periodeLabel") or r.get("evenementLabel") or "").upper()
-        return [Paragraph(f"<b>{label}</b>", cell_style_bc)]
+    """Une ligne primaire.
+
+    Semaine d'événement : la ligne reste une ligne de semaine (mois + semaine) et
+    le nom de l'événement occupe les colonnes matière, fusionnées (SPAN) — c'est
+    la disposition du document officiel, pas une bande pleine largeur.
+    """
     mois = r.get("mois") or ""
     week = f"{r.get('semaineNum') or ''} · {compact_week(r.get('dateLabel') or '')}" if (r.get('semaineNum') is not None or r.get('dateLabel')) else ""
+    if r.get("rowType") == "evenement":
+        label = (r.get("eventLabel") or r.get("eventKind") or "").upper()
+        return [
+            p(mois, cell_style_bc),                    # mois (fusionné)
+            p(week, cell_style_bc),
+            Paragraph(f"<b>{label}</b>", cell_style_bc),  # SPAN sur les 4 colonnes
+        ]
     return [
         p(mois, cell_style_bc),                    # mois (sera fusionné)
         p(week, cell_style_bc),
@@ -337,7 +358,8 @@ def render_primary_row(r: dict):
 
 def render_secondary_row(r: dict):
     if r["rowType"] == "evenement":
-        label = (r.get("periodeLabel") or "").upper()
+        # Le secondaire garde sa disposition en bandes (design approuvé).
+        label = (r.get("eventLabel") or r.get("eventKind") or "").upper()
         return [Paragraph(f"<b>{label}</b>", cell_style_bc)]
     return [
         p(str(r.get("semaineNum") or ""), cell_style_c),

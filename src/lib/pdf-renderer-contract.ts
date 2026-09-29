@@ -1,5 +1,9 @@
 import { createHmac } from "node:crypto";
-import type { FicheWithRows, FicheRowType, FicheStatut } from "@/lib/fiche-types";
+import type { FicheWithRows, FicheStatut } from "@/lib/fiche-types";
+// The paper layout is computed in TypeScript and shipped with the payload, so the
+// Python renderer cannot drift from the on-screen grid (it used to draw its own
+// full-width event bands). See src/lib/fiche-print-rows.ts.
+import { buildPdfRows, type PdfRow } from "@/lib/fiche-print-rows";
 
 // ---------------------------------------------------------------------------
 // Print-only renderer contract.
@@ -25,16 +29,7 @@ export type PdfPayload = {
     enseignant: string;
     annee: string;
   };
-  rows: Array<{
-    ordre: number;
-    rowType: FicheRowType;
-    mois: string | null;
-    semaineNum: number | null;
-    dateLabel: string | null;
-    periodeLabel: string | null;
-    evenementLabel: string | null;
-    cells: Record<string, string>;
-  }>;
+  rows: PdfRow[];
 };
 
 export type RendererEnvelope = {
@@ -65,22 +60,7 @@ export function toPdfPayload(fiche: FicheWithRows): PdfPayload {
       enseignant: fiche.meta.enseignant,
       annee: fiche.meta.school_year_label,
     },
-    rows: fiche.rows.map((row) => {
-      const cells: Record<string, string> = {};
-      for (const [key, cell] of Object.entries(row.cells)) {
-        cells[key] = cell.value;
-      }
-      return {
-        ordre: row.ordre,
-        rowType: row.row_type,
-        mois: row.mois,
-        semaineNum: row.semaine_num,
-        dateLabel: row.date_label,
-        periodeLabel: row.periode_label,
-        evenementLabel: row.evenement_label,
-        cells,
-      };
-    }),
+    rows: buildPdfRows(fiche.rows, fiche.meta.section),
   };
 }
 
@@ -98,12 +78,7 @@ export function verifyRendererBounds(payload: PdfPayload): void {
     payload.meta.sousBranche,
     payload.meta.enseignant,
     payload.meta.annee,
-    ...payload.rows.flatMap((row) => [
-      row.mois,
-      row.dateLabel,
-      row.periodeLabel,
-      row.evenementLabel,
-    ]),
+    ...payload.rows.flatMap((row) => [row.mois, row.dateLabel, row.eventLabel]),
   ];
 
   for (const label of labels) {

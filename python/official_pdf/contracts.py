@@ -83,7 +83,7 @@ def _validate_payload(payload) -> None:
             _reject("row.rowType invalide")
         if not isinstance(row.get("ordre"), int):
             _reject("row.ordre doit être un entier")
-        for key in ("mois", "dateLabel", "periodeLabel", "evenementLabel"):
+        for key in ("mois", "dateLabel", "eventLabel", "eventKind"):
             v = row.get(key)
             if v is not None and not isinstance(v, str):
                 _reject(f"row.{key} doit être une chaîne ou null")

@@ -28,7 +28,7 @@ def make_body(issued_at: int = 1_700_000_000, payload=None) -> bytes:
             "rows": [{
                 "ordre": 1, "rowType": "enseignement", "mois": "Septembre",
                 "semaineNum": 1, "dateLabel": "01/09/2026 → 04/09/2026",
-                "periodeLabel": None, "evenementLabel": None,
+                "eventLabel": None, "eventKind": None, "moisRowspan": 1,
                 "cells": {"matieres": "Lecture", "ref": "", "intention": "", "obs": ""},
             }],
         },
