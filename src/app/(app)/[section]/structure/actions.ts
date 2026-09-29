@@ -119,6 +119,67 @@ export async function deleteClass(id: string, section: "primaire" | "secondaire"
   return {};
 }
 
+/**
+ * Bulk-delete CLASSES from the structure page. The user chose the same target as
+ * the attributions table: each selected class has its attributions and their
+ * fiches removed explicitly, so nothing is left orphaned by a cascade and the
+ * count reported back is meaningful. Submitted fiches are protected (skipped
+ * and reported) exactly like the single-row delete.
+ */
+export async function deleteClassesBulk(
+  classIds: string[],
+  section: "primaire" | "secondaire",
+  yearId: string
+): Promise<Result & { deleted?: number; skipped?: number }> {
+  await requireStructureAccess(section);
+  const supabase = await createClient();
+  const wanted = [...new Set(classIds.filter(Boolean))];
+  if (wanted.length === 0) return { deleted: 0, skipped: 0 };
+
+  // Attributions of those classes in the selected year, with their fiche state.
+  const { data: attrs } = await supabase
+    .from("attributions")
+    .select("id, classe_id, fiche:fiches(id, statut)")
+    .in("classe_id", wanted)
+    .eq("school_year_id", yearId);
+  // The embedded `fiche:fiches(...)` relation is typed as an array by the
+  // generated client; each attribution has at most one fiche, so take the first.
+  const rows = ((attrs ?? []) as unknown as {
+    id: string;
+    classe_id: string;
+    fiche: { id: string; statut: string } | { id: string; statut: string }[] | null;
+  }[]).map((a) => ({ ...a, fiche: Array.isArray(a.fiche) ? a.fiche[0] ?? null : a.fiche }));
+
+  // A class holding a SUBMITTED fiche is not removed — the teacher must deal
+  // with it first (same protection as the attributions bulk delete).
+  const blockedClasses = new Set(
+    rows.filter((a) => a.fiche?.statut === "soumise").map((a) => a.classe_id)
+  );
+  const removableClasses = wanted.filter((id) => !blockedClasses.has(id));
+  const removableAttrs = rows.filter((a) => !blockedClasses.has(a.classe_id));
+  const ficheIds = removableAttrs.map((a) => a.fiche?.id).filter(Boolean) as string[];
+
+  if (ficheIds.length) {
+    const { error: fErr } = await supabase.from("fiches").delete().in("id", ficheIds);
+    if (fErr) return { error: fErr.message };
+  }
+  if (removableAttrs.length) {
+    const { error: aErr } = await supabase
+      .from("attributions")
+      .delete()
+      .in("id", removableAttrs.map((a) => a.id));
+    if (aErr) return { error: aErr.message };
+  }
+  if (removableClasses.length) {
+    const { error } = await supabase.from("classes").delete().in("id", removableClasses);
+    if (error) return { error: error.message };
+  }
+
+  revalidatePath(`/${section}/structure`);
+  revalidatePath(`/${section}/attributions`);
+  return { deleted: removableClasses.length, skipped: wanted.length - removableClasses.length };
+}
+
 export async function importClassesCsv(
   section: "primaire" | "secondaire",
   yearId: string,

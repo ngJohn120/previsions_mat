@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClass, updateClass, deleteClass, importClassesCsv } from "@/app/(app)/[section]/structure/actions";
+import { createClass, updateClass, deleteClass, deleteClassesBulk, importClassesCsv } from "@/app/(app)/[section]/structure/actions";
+import { BulkDeleteAction } from "@/components/ui/bulk-select";
 import { CsvImportDialog } from "@/components/ui/csv-import-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,8 @@ export function StructureManager({
   const [titulaireId, setTitulaireId] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Bulk selection: ids of the class cards ticked in the grid.
+  const [selected, setSelected] = useState<string[]>([]);
 
   const sectionTitle = section === "primaire" ? "Primaire" : "Secondaire";
 
@@ -74,6 +77,35 @@ export function StructureManager({
     router.refresh();
   }
 
+  function toggleSelected(id: string) {
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  async function handleBulkDelete() {
+    if (selected.length === 0) return;
+    const picked = classes.filter((c) => selected.includes(c.id));
+    const n = picked.length;
+    const detail = picked.map((c) => c.name).join(", ");
+    if (
+      !confirm(
+        `Supprimer ${n} classe${n > 1 ? "s" : ""} (${detail}) et leurs attributions et fiches ?`
+      )
+    ) return;
+    setBusy(true); setError(null);
+    try {
+      const res = await deleteClassesBulk(selected, section as "primaire" | "secondaire", yearId);
+      if (res.error) { setError(res.error); setBusy(false); return; }
+      if (res.skipped) {
+        setError(`${res.skipped} classe(s) avec une fiche soumise : non supprimée(s).`);
+      }
+      setSelected([]);
+    } catch {
+      setError("La suppression groupée n'a pas abouti. Vérifiez les classes restantes, puis réessayez.");
+    }
+    setBusy(false);
+    router.refresh();
+  }
+
   async function handleDelete(c: ClassItem) {
     if (!confirm(`Supprimer la classe ${c.name} ?`)) return;
     const res = await deleteClass(c.id, section as any);
@@ -97,6 +129,13 @@ export function StructureManager({
             )}
             <Button onClick={openCreate}><span className="mr-1">+</span> Ajouter une classe</Button>
             <Button variant="outline" onClick={() => setCsvOpen(true)}>Importer (CSV)</Button>
+            <BulkDeleteAction
+              count={selected.length}
+              onDelete={handleBulkDelete}
+              onClear={() => setSelected([])}
+              disabled={busy}
+              what="classe"
+            />
           </div>
         )}
       </div>
@@ -105,7 +144,18 @@ export function StructureManager({
         {classes.map((c) => (
           <div key={c.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{c.level}</span>
+              <span className="flex items-center gap-2">
+                {canManage && (
+                  <input
+                    type="checkbox"
+                    className="h-3.5 w-3.5 rounded border-slate-300"
+                    checked={selected.includes(c.id)}
+                    onChange={() => toggleSelected(c.id)}
+                    aria-label={`Sélectionner la classe ${c.name}`}
+                  />
+                )}
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{c.level}</span>
+              </span>
               {canManage && (
                 <div className="flex gap-1">
                   <Button variant="ghost" size="sm" onClick={() => openEdit(c)}>✎</Button>

@@ -145,7 +145,9 @@ export default async function StructurePage({
     userId: t.user_id,
     name: teacherNameById.get(t.user_id) ?? "—",
     isActive: stripFlagById.get(t.user_id) ?? true,
-    assignmentCount: (stripAttrCount.get(t.user_id) ?? 0) + (stripTitulCount.get(t.user_id) ?? 0),
+    // « cours » = attributions only; titulaire de classe is shown separately.
+    assignmentCount: stripAttrCount.get(t.user_id) ?? 0,
+    titulaireCount: stripTitulCount.get(t.user_id) ?? 0,
     accountDisabled: false,
   }));
   const { attributionOrphans: stripAttrOrphans, titulaireOrphans: stripTitulOrphans } = yearId

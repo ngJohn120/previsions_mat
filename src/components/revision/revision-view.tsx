@@ -24,7 +24,7 @@ export type RevisionData = {
   }[];
   roster: Record<
     Section,
-    { userId: string; name: string; isActive: boolean; assignmentCount: number; accountDisabled: boolean }[]
+    { userId: string; name: string; isActive: boolean; assignmentCount: number; titulaireCount: number; accountDisabled: boolean }[]
   >;
   orphans: Record<
     Section,

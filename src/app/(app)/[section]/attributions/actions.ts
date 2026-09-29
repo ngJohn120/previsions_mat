@@ -234,6 +234,51 @@ export async function deleteAttribution(id: string, section: "primaire" | "secon
   return {};
 }
 
+/**
+ * Bulk-delete attributions (and their fiches) in one pass. Fiches that are
+ * submitted are NEVER deleted — they are skipped and reported, so a bulk action
+ * can never quietly destroy validated work.
+ */
+export async function deleteAttributionsBulk(
+  ids: string[],
+  section: "primaire" | "secondaire"
+): Promise<Result & { deleted?: number; skipped?: string[] }> {
+  await requireAttributionAccess(section);
+  const supabase = await createClient();
+  const wanted = [...new Set(ids.filter(Boolean))];
+  if (wanted.length === 0) return { deleted: 0, skipped: [] };
+
+  // Submitted fiches are protected: same rule as the single delete.
+  const { data: submitted } = await supabase
+    .from("fiches")
+    .select("attribution_id")
+    .in("attribution_id", wanted)
+    .eq("statut", "soumise");
+  const protectedIds = new Set((submitted ?? []).map((f: { attribution_id: string }) => f.attribution_id));
+  const deletable = wanted.filter((id) => !protectedIds.has(id));
+  const skipped = wanted.filter((id) => protectedIds.has(id));
+  if (deletable.length === 0) {
+    return { deleted: 0, skipped, error: skipped.length ? "Sélection uniquement composée de fiches soumises (protégées)." : undefined };
+  }
+
+  // fiches go first (fiche_rows / fiche_cells cascade from the fiche).
+  const { data: fiches } = await supabase
+    .from("fiches")
+    .select("id")
+    .in("attribution_id", deletable);
+  const ficheIds = (fiches ?? []).map((f: { id: string }) => f.id);
+  if (ficheIds.length) {
+    const { error: fErr } = await supabase.from("fiches").delete().in("id", ficheIds);
+    if (fErr) return { error: fErr.message };
+  }
+  const { error } = await supabase.from("attributions").delete().in("id", deletable);
+  if (error) return { error: error.message };
+
+  revalidatePath(`/${section}/attributions`);
+  revalidatePath(`/${section}/structure`);
+  return { deleted: deletable.length, skipped };
+}
+
 export async function importAttributionsCsv(
   section: "primaire" | "secondaire",
   yearId: string,

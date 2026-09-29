@@ -4,6 +4,9 @@ import { useMemo, useRef, useState } from "react";
 import { Cell } from "@/components/editor/cell";
 import { cn } from "@/lib/utils";
 import type { FicheRow } from "@/lib/fiche-types";
+import {
+  eventLabelInWeek, eventRowClass, eventTextClass, monthBlocks, weeksWithEvents,
+} from "@/lib/fiche-events";
 
 const PRIMARY_COL_META: { key: string; label: string; required: boolean; className?: string }[] = [
   { key: "matieres", label: "Matières à enseigner", required: true, className: "min-w-[250px]" },
@@ -12,12 +15,17 @@ const PRIMARY_COL_META: { key: string; label: string; required: boolean; classNa
   { key: "obs", label: "Obs.", required: false, className: "min-w-[120px]" },
 ];
 
-const COL_SPAN = PRIMARY_COL_META.length + 2; // + mois + semaine
-
 /**
  * Primary grid: month-grouped rows (month header with rowspan over the
  * consecutive teaching rows of that month), a week column (number + range),
- * editable teaching cells, and full-width event bands.
+ * editable teaching cells. An event week shows only its name, centered
+ * across the teaching area (nothing is editable there) — the paper's layout.
+ *
+ * Paper-faithful events: on the official document an event is written on the
+ * row of the FIRST week it covers (in its own column), and the following weeks
+ * of the span stay normal teaching rows. Event rows carry no `semaine_num`, so
+ * each one is attached at render time to the first teaching week it overlaps —
+ * no data migration needed.
  */
 export function PrimaryGrid({
   rows,
@@ -51,50 +59,13 @@ export function PrimaryGrid({
     onCellsChange?.(next);
   }
 
-  // Compute display rows: teaching rows carry a monthHeader + rowspan when a
-  // new month starts; event rows are standalone full-width bands. IMPORTANT:
-  // an event band is a physical <tr>, so counting consecutive same-month
-  // teaching rows across a band (as the old code did on the teaching-only
-  // array) made the month cell's rowspan cover the band and left the first
-  // week AFTER the band without a month cell — shifting its Semaine — Date
-  // cell one column left (under "Mois"). Bands now CLOSE a month block; the
-  // next teaching row re-labels the month.
-  const display = useMemo(() => {
-    type Disp =
-      | { kind: "teaching"; row: FicheRow; monthLabel: string | null; monthRowspan: number }
-      | { kind: "event"; row: FicheRow };
-    const out: Disp[] = [];
-    const teaching = rows.filter((r) => r.row_type === "enseignement");
-    let t = 0;
-    for (let p = 0; p < rows.length; p++) {
-      const r = rows[p];
-      if (r.row_type === "evenement") {
-        out.push({ kind: "event", row: r });
-        continue;
-      }
-      // teaching: starts a month block when it begins the table, changes month
-      // versus the previous teaching row, or directly follows an event band.
-      const prevTeaching = teaching[t - 1];
-      const prevWasEvent = p > 0 && rows[p - 1].row_type === "evenement";
-      const isNewMonth = !prevTeaching || prevTeaching.mois !== r.mois || prevWasEvent;
-      let rowspan = 1;
-      if (isNewMonth) {
-        let q = p + 1;
-        while (q < rows.length && rows[q].row_type === "enseignement" && rows[q].mois === r.mois) {
-          rowspan++;
-          q++;
-        }
-      }
-      out.push({
-        kind: "teaching",
-        row: r,
-        monthLabel: isNewMonth ? r.mois : null,
-        monthRowspan: rowspan,
-      });
-      t++;
-    }
-    return out;
-  }, [rows]);
+  // Teaching rows, each with the event printed on it (shared with the PDF), and
+  // the month blocks those rows form.
+  const weeks = useMemo(() => weeksWithEvents(rows), [rows]);
+  const months = useMemo(
+    () => monthBlocks(weeks.map((w) => w.row)),
+    [weeks]
+  );
 
   return (
     <div className="overflow-x-auto">
@@ -121,31 +92,54 @@ export function PrimaryGrid({
           </tr>
         </thead>
         <tbody>
-          {display.map((d) =>
-            d.kind === "event" ? (
-              <tr key={d.row.id} className={bandClass(d.row.evenement_label)}>
-                <td colSpan={COL_SPAN} className="border border-amber-200/70 px-3 py-2 text-center text-[11.5px] font-bold tracking-wide text-amber-800 uppercase">
-                  {d.row.periode_label ?? d.row.date_label ?? "Événement"}
-                </td>
-              </tr>
-            ) : (
-              <tr key={d.row.id}>
-                {d.monthLabel !== null && (
+          {weeks.map((w, i) => {
+            const ev = w.event;
+            const month = months[i];
+            return (
+              <tr key={w.row.id} className={ev ? eventRowClass(ev.evenement_label) : undefined}>
+                {month.label !== null && (
                   <td
-                    rowSpan={d.monthRowspan}
+                    rowSpan={month.rowspan}
                     className="w-[110px] border border-slate-200 bg-slate-100 px-2 py-2 text-center align-middle text-xs font-bold text-slate-600"
                   >
-                    {d.monthLabel}
+                    {month.label}
                   </td>
                 )}
                 <td className="whitespace-nowrap border border-slate-200 bg-slate-50/60 px-2 py-1.5 text-center align-middle">
                   <span className="block text-sm font-bold text-slate-800">
-                    {d.row.semaine_num ?? ""}
+                    {w.row.semaine_num ?? ""}
                   </span>
-                  <span className="block text-[11px] text-slate-500">{d.row.date_label ?? ""}</span>
+                  <span className="block text-[11px] text-slate-500">{w.row.date_label ?? ""}</span>
                 </td>
-                {PRIMARY_COL_META.map((col) => {
-                  const cell = d.row.cells[col.key];
+                {PRIMARY_COL_META.map((col, ci) => {
+                  // An event week carries no teaching: the event name spans the
+                  // teaching area, centered, and nothing is editable there.
+                  if (ev && ci === 0) {
+                    return (
+                      <td
+                        key={col.key}
+                        colSpan={PRIMARY_COL_META.length}
+                        className="h-[46px] border border-slate-200 px-2 py-1.5 align-middle"
+                      >
+                        <span
+                          className={cn(
+                            "block text-center text-[12.5px] leading-snug font-bold tracking-wide uppercase",
+                            eventTextClass(ev.evenement_label),
+                            w.continues && "opacity-80"
+                          )}
+                          title={ev.date_label ?? undefined}
+                        >
+                          {eventLabelInWeek(ev, w.row, w.continues)}
+                        </span>
+                      </td>
+                    );
+                  }
+                  if (ev) {
+                    // remaining teaching columns of the event row are covered by
+                    // the colspan above
+                    return null;
+                  }
+                  const cell = w.row.cells[col.key];
                   const value = cell ? values[cell.id] ?? cell.value : "";
                   return (
                     <td
@@ -170,17 +164,11 @@ export function PrimaryGrid({
                   );
                 })}
               </tr>
-            )
-          )}
+            );
+          })}
         </tbody>
       </table>
     </div>
   );
 }
 
-function bandClass(type: string | null): string {
-  if (type === "evaluation" || type === "examen") {
-    return "bg-purple-50 text-purple-700 [&>td]:!border-purple-200";
-  }
-  return "bg-amber-50 text-amber-800 [&>td]:!border-amber-200/70";
-}
