@@ -16,8 +16,8 @@ const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, p
 
 const users = [
   { email: "direction@siloe.edu", password: "Test1234!", full_name: "Direction SILOE", phone: "+243 99 000 1122", roles: [{ role: "super_admin" }] },
-  { email: "admin.prim@siloe.edu", password: "Test1234!", full_name: "Ilunga wa Ilunga", phone: "+243 81 555 7788", roles: [{ role: "admin_primaire", section: "primaire" }, { role: "enseignant", section: "primaire" }] },
-  { email: "admin.sec@siloe.edu", password: "Test1234!", full_name: "Mukendi Tshibanda", phone: null, roles: [{ role: "admin_secondaire", section: "secondaire" }, { role: "enseignant", section: "secondaire" }] },
+  { email: "admin.prim@siloe.edu", password: "Test1234!", full_name: "Ilunga wa Ilunga", phone: "+243 81 555 7788", roles: [{ role: "admin", section: "primaire" }, { role: "enseignant", section: "primaire" }] },
+  { email: "admin.sec@siloe.edu", password: "Test1234!", full_name: "Mukendi Tshibanda", phone: null, roles: [{ role: "admin", section: "secondaire" }, { role: "enseignant", section: "secondaire" }] },
   { email: "m.kazadi@siloe.edu", password: "Test1234!", full_name: "Kazadi Mutombo", phone: null, roles: [{ role: "enseignant", section: "secondaire" }] },
   { email: "m.mbuyi@siloe.edu", password: "Test1234!", full_name: "Mbuyi Kabongo", phone: "+243 97 123 4567", roles: [{ role: "enseignant", section: "primaire" }] },
 ];

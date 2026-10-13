@@ -116,14 +116,14 @@ export type UserCsvRow = {
   email: string;
   full_name: string;
   phone?: string;
-  role: string; // super_admin | admin_primaire | admin_secondaire | enseignant
+  role: string; // super_admin | admin | enseignant
   section?: string; // primaire | secondaire
 };
 
 export function validateUsersCsv(rows: CsvRow[]): { data: UserCsvRow[]; errors: ValidationIssue[] } {
   const errors: ValidationIssue[] = [];
   const data: UserCsvRow[] = [];
-  const roles = new Set(["super_admin", "admin_primaire", "admin_secondaire", "enseignant"]);
+  const roles = new Set(["super_admin", "admin", "enseignant"]);
   const sections = new Set(["primaire", "secondaire", ""]);
 
   rows.forEach((raw, idx) => {

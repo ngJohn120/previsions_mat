@@ -9,12 +9,16 @@ const YEAR_COOKIE = "pm_year";
 function roleLabel(user: NonNullable<Awaited<ReturnType<typeof getSessionUser>>>) {
   const labels: Record<string, string> = {
     super_admin: "Super administrateur",
-    admin_primaire: "Administrateur · Primaire",
-    admin_secondaire: "Administrateur · Secondaire",
     enseignant: "Enseignant",
   };
   if (user.roles.length === 0) return "—";
-  return user.roles.map((r) => labels[r.role] ?? r.role).join(" · ");
+  return user.roles
+    .map((r) =>
+      r.role === "admin"
+        ? `Administrateur · ${r.section === "secondaire" ? "Secondaire" : "Primaire"}`
+        : (labels[r.role] ?? r.role)
+    )
+    .join(" · ");
 }
 
 /** Classes the signed-in teacher actually teaches, for the selected year
