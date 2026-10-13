@@ -36,7 +36,7 @@ function statutChip(statut: string | null) {
 }
 
 export function AttributionsManager({
-  section, yearId, yearLabel, items, classOptions, branchOptions, orphanSubjects, sousOptions, teacherOptions, orphanAttrIds, canManage, superAdmin,
+  section, yearId, yearLabel, items, classOptions, branchOptions, branchClasseLinks, orphanSubjects, sousOptions, teacherOptions, orphanAttrIds, canManage, superAdmin,
 }: {
   section: string;
   yearId: string;
@@ -44,6 +44,8 @@ export function AttributionsManager({
   items: Attr[];
   classOptions: Option[];
   branchOptions: Option[];
+  /** Subject→class links from /admin/branches (0016): {branche_id, classe_id}. */
+  branchClasseLinks: { branche_id: string; classe_id: string }[];
   /** Subjects with no parent branch (0017): each is taught as its own cours. */
   orphanSubjects: Option[];
   sousOptions: Option[]; // {id,name,branche_id}
@@ -92,6 +94,29 @@ export function AttributionsManager({
     return m;
   }, [classOptions]);
 
+  // Classes linked to each cours on /admin/branches (branch_classes, 0016).
+  const linkedClassesByBranch = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    for (const l of branchClasseLinks) {
+      const set = m.get(l.branche_id) ?? new Set<string>();
+      set.add(l.classe_id);
+      m.set(l.branche_id, set);
+    }
+    return m;
+  }, [branchClasseLinks]);
+
+  /** Classe choices for a cours: the classes linked to it on /branches — every
+   *  class when the cours has no link (or none of its links exist this year).
+   *  The current selection always stays visible so an edit can keep it. */
+  function classeChoicesFor(bid: string, keepId: string): Option[] {
+    const linked = linkedClassesByBranch.get(bid);
+    const matched = linked ? classOptions.filter((c) => linked.has(c.id)) : [];
+    const base = matched.length ? matched : classOptions;
+    const cur = classOptions.find((c) => c.id === keepId);
+    return cur && !base.some((c) => c.id === cur.id) ? [cur, ...base] : base;
+  }
+  const classeChoices = classeChoicesFor(brancheId, classeId);
+
   // Already-assigned sous-branches for the selected classe+cours (create mode):
   // disabled in the checkbox list so the unique constraint can't be hit.
   const takenSous = useMemo(() => {
@@ -128,7 +153,11 @@ export function AttributionsManager({
   const filterActive = search !== "" || coursFilter !== "" || enseignantFilter !== "";
 
   function openCreate() {
-    setEdit(null); setClasseId(classOptions[0]?.id ?? ""); setBrancheId(branchOptions[0]?.id ?? ""); setSousIds([]); setOrphanIds([]); setEnseignantId(teacherOptions[0]?.id ?? ""); setError(null); setOpen(true);
+    // Default class = the first one the default cours is LINKED to (/branches);
+    // every class when that cours has no link. (Edit keeps the row's own class.)
+    const firstBranch = branchOptions[0]?.id ?? "";
+    const firstClass = classeChoicesFor(firstBranch, "")[0]?.id ?? classOptions[0]?.id ?? "";
+    setEdit(null); setClasseId(firstClass); setBrancheId(firstBranch); setSousIds([]); setOrphanIds([]); setEnseignantId(teacherOptions[0]?.id ?? ""); setError(null); setOpen(true);
   }
 
   function openEdit(a: Attr) {
@@ -363,20 +392,28 @@ export function AttributionsManager({
             <DialogDescription>{sectionLabel} · {yearLabel}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div>
-              <Label>Classe</Label>
-              <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={classeId} onChange={(e) => setClasseId(e.target.value)}>
-                {classOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
+            {/* Cours first: choosing the subject narrows the classes it is
+                linked to on /admin/branches (branch_classes, 0016). */}
             <div>
               <Label>Cours (branche)</Label>
               <select
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
                 value={brancheId}
-                onChange={(e) => { setBrancheId(e.target.value); setSousIds([]); }}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setBrancheId(next); setSousIds([]);
+                  // Keep the class only while the new cours offers it.
+                  const choices = classeChoicesFor(next, classeId);
+                  if (!choices.some((c) => c.id === classeId)) setClasseId(choices[0]?.id ?? "");
+                }}
               >
                 {branchOptions.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <Label>Classe</Label>
+              <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={classeId} onChange={(e) => setClasseId(e.target.value)}>
+                {classeChoices.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             {!edit && filteredSous.length > 0 && (
