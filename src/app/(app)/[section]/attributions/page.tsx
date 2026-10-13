@@ -53,6 +53,11 @@ export default async function AttributionsPage({
   const { data: sous } = await supabase
     .from("sous_branches")
     .select("id, name, branche_id, classe_id");
+  // Subject→class links made on /admin/branches (link table 0016): the
+  // attribution dialog reflects them when offering classes for a cours.
+  const { data: branchClasses } = await supabase
+    .from("branch_classes")
+    .select("branche_id, classe_id");
   const { data: fiches } = await supabase.from("fiches").select("id, attribution_id, statut");
   // No FK between user_roles and profiles, so fetch roles then names separately.
   // Roster-filtered: only teachers active for the selected year are choosable.
@@ -133,6 +138,7 @@ export default async function AttributionsPage({
       items={items}
       classOptions={classOptions}
       branchOptions={branchOptions}
+      branchClasseLinks={(branchClasses ?? []).map((bc: any) => ({ branche_id: bc.branche_id, classe_id: bc.classe_id }))}
       orphanSubjects={orphanSubjects}
       sousOptions={sousOptions}
       teacherOptions={teacherOptions}
