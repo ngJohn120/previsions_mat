@@ -45,7 +45,8 @@ export default async function BranchesPage() {
   // sous-branches can target SEVERAL classes.
   const { data: branchClasses } = await supabase.from("branch_classes").select("branche_id, classe_id");
 
-  // « Classe » choices for the modal: primaire classes of the selected year.
+  // « Classe » choices for the modal: classes of the admin's own scope(s) for
+  // the selected year (a secondaire admin gets the secondaire grades).
   // A binding may point at a class from another year (a branch without
   // sous-branches, or a sous-branche) — keep those names so the table and
   // the edit select never lose a binding.
@@ -54,7 +55,7 @@ export default async function BranchesPage() {
         .from("classes")
         .select("id, name, section, ordre")
         .eq("school_year_id", selectedYear.id)
-        .eq("section", "primaire")
+        .in("section", scope)
         .order("ordre")
         .order("name")
     : { data: [] };

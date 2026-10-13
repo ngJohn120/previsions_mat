@@ -112,6 +112,12 @@ export function BranchesManager({
   // - Super admin: visible iff "Primaire" is checked (checkbox-based, live).
   const isSuper = multiSection; // super admin = both sections in scope
   const allowSousBranches = isSuper ? usePrim : canPrim;
+  // Branch-level classes: offered for BOTH sections (a secondaire branch
+  // targets its grades too). The primaire-only sous-branche rows keep the
+  // picker they already have.
+  const allowBranchClasses = isSuper ? usePrim || useSec : true;
+  // Own section leads for a section admin; direction keeps Primaire → Secondaire.
+  const sectionBoxes: Section[] = canSec && !canPrim ? ["secondaire", "primaire"] : ["primaire", "secondaire"];
 
   /** True when the modal holds at least one named sous-branche (an empty input
    *  row is just the "add one" affordance, not a sous-branche). */
@@ -429,24 +435,19 @@ export function BranchesManager({
               </label>
             )}
             <div>
-              <Label>{sansBranche && !edit ? "Nom de la matière" : "Nom de la branche"}</Label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={sansBranche && !edit ? "Ex. Dessin" : "Ex. Français"}
-              />
-            </div>
-            <div>
               <Label>Utilisable en</Label>
               <div className="mt-1 flex gap-4">
-                <label className="flex items-center gap-2 text-sm" title={!canPrim ? LOCKED_SECTION_HINT : undefined}>
-                  <input type="checkbox" checked={usePrim} disabled={!canPrim}
-                    onChange={(e) => setUsePrim(e.target.checked)} /> Primaire
-                </label>
-                <label className="flex items-center gap-2 text-sm" title={!canSec ? LOCKED_SECTION_HINT : undefined}>
-                  <input type="checkbox" checked={useSec} disabled={!canSec}
-                    onChange={(e) => setUseSec(e.target.checked)} /> Secondaire
-                </label>
+                {sectionBoxes.map((s) => {
+                  const box = s === "primaire"
+                    ? { label: "Primaire", checked: usePrim, disabled: !canPrim, toggle: setUsePrim }
+                    : { label: "Secondaire", checked: useSec, disabled: !canSec, toggle: setUseSec };
+                  return (
+                    <label key={s} className="flex items-center gap-2 text-sm" title={box.disabled ? LOCKED_SECTION_HINT : undefined}>
+                      <input type="checkbox" checked={box.checked} disabled={box.disabled}
+                        onChange={(e) => box.toggle(e.target.checked)} /> {box.label}
+                    </label>
+                  );
+                })}
               </div>
               {!multiSection && (
                 <p className="mt-1 text-xs text-slate-400">
@@ -454,6 +455,14 @@ export function BranchesManager({
                   {canPrim ? "Secondaire" : "Primaire"} sont gérées par leur direction.
                 </p>
               )}
+            </div>
+            <div>
+              <Label>{sansBranche && !edit ? "Nom de la matière" : "Nom de la branche"}</Label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={sansBranche && !edit ? "Ex. Dessin" : "Ex. Français"}
+              />
             </div>
             {/* « sans branche » mode: the name IS the subject, so there is no
                 second level to declare — the classes attach to the name itself. */}
@@ -498,7 +507,7 @@ export function BranchesManager({
                 itself (link table 0016, several possible). Once a sous-branche
                 exists the classes live there, so the field hides itself to keep
                 the classes in one place. Same picker as the sous-branche rows. */}
-            {allowSousBranches && !hasSousRow() && (
+            {allowBranchClasses && !hasSousRow() && (
               <div>
                 <Label>{sansBrancheMode ? "Classe(s) (optionnel)" : "Classe (optionnel)"}</Label>
                 <ClassPicker
