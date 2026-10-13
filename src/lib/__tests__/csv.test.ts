@@ -29,7 +29,7 @@ describe("validateUsersCsv", () => {
     const { data, errors } = validateUsersCsv([
       ["new@siloe.edu", "New Prof", "", "enseignant", "secondaire"],
       ["bad-email", "X", "", "enseignant", "secondaire"],
-      ["x@siloe.edu", "", "", "admin_primaire", "primaire"],
+      ["x@siloe.edu", "", "", "admin", "primaire"],
     ]);
     expect(data).toHaveLength(1);
     expect(errors).toHaveLength(2);

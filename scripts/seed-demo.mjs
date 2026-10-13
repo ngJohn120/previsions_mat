@@ -43,7 +43,7 @@ async function findTeacher(section) {
   const { data: adminRows } = await c
     .from("user_roles")
     .select("user_id")
-    .in("role", ["admin_primaire", "admin_secondaire", "super_admin"]);
+    .in("role", ["admin", "super_admin"]);
   const adminIds = new Set((adminRows ?? []).map((x) => x.user_id));
 
   const { data: roles, error } = await c

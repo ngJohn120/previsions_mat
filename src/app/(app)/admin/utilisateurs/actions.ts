@@ -192,14 +192,12 @@ export async function importUsersCsv(rows: CsvRow[]): Promise<ImportResult> {
   let created = 0;
 
   for (const u of data) {
-    // Resolve role/section to RoleInput; super_admin has no section.
-    const roleInput: RoleInput =
-      u.role === "super_admin"
-        ? { role: "super_admin", section: null }
-        : u.role === "admin_primaire"
-          ? { role: "admin_primaire", section: "primaire" }
-          : u.role === "admin_secondaire"
-            ? { role: "admin_secondaire", section: "secondaire" }
+      // Resolve role/section to RoleInput; super_admin has no section.
+      const roleInput: RoleInput =
+        u.role === "super_admin"
+          ? { role: "super_admin", section: null }
+          : u.role === "admin"
+            ? { role: "admin", section: (u.section as Section) ?? null }
             : { role: "enseignant", section: (u.section as Section | undefined) ?? null };
 
     const res = await createUser({

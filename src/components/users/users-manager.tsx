@@ -29,15 +29,13 @@ import { RowAction } from "@/components/ui/row-action";
 
 const ROLE_LABELS: Record<string, string> = {
   super_admin: "Super admin",
-  admin_primaire: "Admin primaire",
-  admin_secondaire: "Admin secondaire",
+  admin: "Admin",
   enseignant: "Enseignant",
 };
 
 function rolePillClass(role: string) {
   if (role === "super_admin") return "bg-indigo-100 text-indigo-700";
-  if (role === "admin_primaire") return "bg-blue-100 text-blue-700";
-  if (role === "admin_secondaire") return "bg-green-100 text-green-700";
+  if (role === "admin") return "bg-blue-100 text-blue-700";
   return "bg-slate-100 text-slate-600";
 }
 
@@ -66,10 +64,8 @@ export function UsersManager({ users }: { users: UserItem[] }) {
   const stats = useMemo(() => {
     const teachers = users.filter((u) => u.roles.some((r) => r.role === "enseignant"));
     const admins = users.filter((u) =>
-      ["admin_primaire", "admin_secondaire", "super_admin"].some((r) =>
-        u.roles.some((x) => x.role === r)
-      )
-    );
+          ["admin", "super_admin"].some((r) => u.roles.some((x) => x.role === r))
+        );
     const active = users.filter((u) => !u.disabled);
     return { total: users.length, teachers: teachers.length, admins: admins.length, active: active.length };
   }, [users]);
@@ -331,9 +327,8 @@ export function UsersManager({ users }: { users: UserItem[] }) {
                       onChange={(e) => updateRoleRow(i, { role: e.target.value })}
                     >
                       <option value="enseignant">Enseignant</option>
-                      <option value="admin_primaire">Admin primaire</option>
-                      <option value="admin_secondaire">Admin secondaire</option>
-                      <option value="super_admin">Super admin</option>
+                                            <option value="admin">Admin</option>
+                                            <option value="super_admin">Super admin</option>
                     </select>
                     {r.role !== "super_admin" && (
                       <select

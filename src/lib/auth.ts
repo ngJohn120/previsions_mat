@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 
-export type Role = "super_admin" | "admin_primaire" | "admin_secondaire" | "enseignant";
+export type Role = "super_admin" | "admin" | "enseignant";
 export type Section = "primaire" | "secondaire";
 
 export type UserRole = {
@@ -62,10 +62,7 @@ export function isSuperAdmin(roles: UserRole[]): boolean {
 
 export function isSectionAdmin(roles: UserRole[], section: Section): boolean {
   return roles.some(
-    (r) =>
-      r.role === ("admin_" + section) ||
-      (r.role === "admin_primaire" && section === "primaire") ||
-      (r.role === "admin_secondaire" && section === "secondaire")
+    (r) => r.role === "admin" && r.section === section
   );
 }
 
