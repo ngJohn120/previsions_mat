@@ -58,7 +58,9 @@ export function AttributionsManager({
   const [open, setOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
   const [edit, setEdit] = useState<Attr | null>(null);
-  const [classeId, setClasseId] = useState("");
+  const [classeIds, setClasseIds] = useState<string[]>([]);
+  // The row's own class (edit, single) = first of the selection.
+  const classeId = classeIds[0] ?? "";
   const [brancheId, setBrancheId] = useState("");
   // Sous-branches of the current selection: several in create (one attribution
   // each), at most one in edit (the row's own sous-branche).
@@ -81,13 +83,25 @@ export function AttributionsManager({
   // selected class (a same-named sous-branche can exist per class; NULL = partagée
   // and always offered). Without this the list repeats a name once per class.
   const filteredSous = sousOptions.filter(
-    (s) => s.branche_id === brancheId && (!s.classe_id || !classeId || s.classe_id === classeId)
+    (s) => s.branche_id === brancheId && (!s.classe_id || classeIds.length === 0 || classeIds.includes(s.classe_id))
   );
   // Subjects with no parent branch (0017) are their own checkbox group: they
   // apply whatever branch is selected, so they are only scoped by CLASS.
   const orphanForClass = orphanSubjects.filter(
-    (o) => !o.classe_id || !classeId || o.classe_id === classeId
+    (o) => !o.classe_id || classeIds.length === 0 || classeIds.includes(o.classe_id)
   );
+  /** Whether this cours offers any sous-branche for that class. */
+  function hasSousFor(bid: string, cid: string): boolean {
+    return sousOptions.some((s) => s.branche_id === bid && (!s.classe_id || s.classe_id === cid));
+  }
+  /** A cours with no sous-branche for a class is assigned as itself (one
+   *  attribution with sous_branche_id NULL): once that row exists, the class
+   *  is done for this cours. */
+  function blockedForClass(bid: string, cid: string): string | null {
+    if (hasSousFor(bid, cid)) return null;
+    const hit = items.find((it) => it.classe_id === cid && it.branche_id === bid && !it.sous_branche_id);
+    return hit ? hit.enseignant : null;
+  }
   const classNameById = useMemo(() => {
     const m = new Map<string, string>();
     for (const c of classOptions) m.set(c.id, c.name);
@@ -115,26 +129,39 @@ export function AttributionsManager({
     const cur = classOptions.find((c) => c.id === keepId);
     return cur && !base.some((c) => c.id === cur.id) ? [cur, ...base] : base;
   }
-  const classeChoices = classeChoicesFor(brancheId, classeId);
+  // The keep-current rule exists so an EDIT can retain the row's own class;
+  // in CREATE it would keep a class the newly selected cours is not linked
+  // to, so it only applies to edit.
+  const classeChoices = classeChoicesFor(brancheId, edit ? classeId : "");
 
-  // Already-assigned sous-branches for the selected classe+cours (create mode):
-  // disabled in the checkbox list so the unique constraint can't be hit.
-  const takenSous = useMemo(() => {
+  // Already-assigned rows, keyed « classe|matière »: a box is disabled only
+  // when NO selected class can take it (all its classes already have it).
+  const takenByKey = useMemo(() => {
     const m = new Map<string, string>();
     if (!edit) {
       for (const it of items) {
-        if (it.classe_id === classeId && it.branche_id === brancheId && it.sous_branche_id) {
-          m.set(it.sous_branche_id, it.enseignant);
-        }
-        // A standalone subject (branche_id NULL) belongs to no branch: mark it
-        // taken for this classe whatever cours is selected.
-        if (it.classe_id === classeId && !it.branche_id && it.sous_branche_id) {
-          m.set(it.sous_branche_id, it.enseignant);
+        if (!it.sous_branche_id) continue;
+        // The selected cours, or a standalone subject (branche_id NULL),
+        // which belongs to no branch and is taken whatever cours is chosen.
+        if (it.branche_id === brancheId || !it.branche_id) {
+          m.set(`${it.classe_id}|${it.sous_branche_id}`, it.enseignant);
         }
       }
     }
     return m;
-  }, [items, edit, classeId, brancheId]);
+  }, [items, edit, brancheId]);
+  /** Selected classes that offer this row (null classe_id = shared). */
+  function ownersOf(classe_id: string | null | undefined): string[] {
+    if (!classe_id) return classeIds;
+    return classeIds.includes(classe_id) ? [classe_id] : [];
+  }
+  /** Free = at least one owner class does not already have it; takenBy names
+   *  the teacher who blocks it when none is free. */
+  function takenStateFor(id: string, classe_id: string | null | undefined) {
+    const owners = ownersOf(classe_id);
+    if (owners.some((cid) => !takenByKey.has(`${cid}|${id}`))) return { disabled: false, takenBy: undefined as string | undefined };
+    return { disabled: true, takenBy: owners.length ? takenByKey.get(`${owners[0]}|${id}`) : undefined };
+  }
 
   function toggleSous(id: string, on: boolean) {
     setSousIds((prev) => (on ? [...prev, id] : prev.filter((x) => x !== id)));
@@ -153,11 +180,12 @@ export function AttributionsManager({
   const filterActive = search !== "" || coursFilter !== "" || enseignantFilter !== "";
 
   function openCreate() {
-    // Default class = the first one the default cours is LINKED to (/branches);
-    // every class when that cours has no link. (Edit keeps the row's own class.)
+    // Default class = the first LINKED one (/branches) that is not already
+    // assigned for this cours; every class when the cours has no link.
     const firstBranch = branchOptions[0]?.id ?? "";
-    const firstClass = classeChoicesFor(firstBranch, "")[0]?.id ?? classOptions[0]?.id ?? "";
-    setEdit(null); setClasseId(firstClass); setBrancheId(firstBranch); setSousIds([]); setOrphanIds([]); setEnseignantId(teacherOptions[0]?.id ?? ""); setError(null); setOpen(true);
+    const choices = classeChoicesFor(firstBranch, "");
+    const first = choices.find((c) => !blockedForClass(firstBranch, c.id)) ?? choices[0];
+    setEdit(null); setClasseIds(first ? [first.id] : []); setBrancheId(firstBranch); setSousIds([]); setOrphanIds([]); setEnseignantId(teacherOptions[0]?.id ?? ""); setError(null); setOpen(true);
   }
 
   function openEdit(a: Attr) {
@@ -167,7 +195,8 @@ export function AttributionsManager({
     const sid = a.sous_branche
       ? sousOptions.find((s) => s.branche_id === bid && s.name === a.sous_branche)?.id
       : undefined;
-    setEdit(a); setClasseId(classOptions.find((c) => c.name === a.classe)?.id ?? ""); setBrancheId(bid); setSousIds(sid ? [sid] : []); setEnseignantId(teacherOptions.find((t) => t.full_name === a.enseignant)?.id ?? ""); setError(null); setOpen(true);
+    const rowClasseId = classOptions.find((c) => c.name === a.classe)?.id;
+    setEdit(a); setClasseIds(rowClasseId ? [rowClasseId] : []); setBrancheId(bid); setSousIds(sid ? [sid] : []); setEnseignantId(teacherOptions.find((t) => t.full_name === a.enseignant)?.id ?? ""); setError(null); setOpen(true);
   }
 
   async function submit() {
@@ -189,28 +218,55 @@ export function AttributionsManager({
         });
         if (res.error) { setError(res.error); setBusy(false); return; }
       } else {
-        // Two independent batches: the sous-branches of the chosen cours, then
-        // the ticked subjects with no parent branch (branche_id NULL, one
-        // attribution + fiche each).
-        const batches = [
-          { branche_id: brancheId, sous_branche_ids: sousIds },
-          ...(orphanIds.length ? [{ branche_id: null, sous_branche_ids: orphanIds }] : []),
-        ].filter((b) => b.sous_branche_ids.length > 0);
-        if (batches.length === 0) {
+        // One submission per selected class: a cours with no sous-branche for
+        // that class is assigned as itself (sous NULL), ticked sous-branches
+        // and branch-less subjects (0017) each become their own attribution.
+        if (classeIds.length === 0) {
+          setError("Choisissez au moins une classe.");
+          setBusy(false);
+          return;
+        }
+        if (sousIds.length === 0 && orphanIds.length === 0 && classeIds.some((cid) => hasSousFor(brancheId, cid))) {
           setError("Choisissez au moins une sous-branche ou une matière sans branche.");
           setBusy(false);
           return;
         }
-        for (const b of batches) {
-          const res = await createAttribution({
-            school_year_id: yearId,
-            section: sectionKey,
-            classe_id: classeId,
-            branche_id: b.branche_id,
-            sous_branche_ids: b.sous_branche_ids,
-            enseignant_id: enseignantId,
-          });
-          if (res.error) { setError(res.error); setBusy(false); return; }
+        const sousSet = new Set(filteredSous.map((s) => s.id));
+        const orphanSet = new Set(orphanForClass.map((o) => o.id));
+        const errors: string[] = [];
+        let total = 0;
+        for (const cid of classeIds) {
+          const sousForClass = sousIds.filter((sid) => sousSet.has(sid) && !takenByKey.has(`${cid}|${sid}`));
+          const orphansForClass = orphanIds.filter((oid) => orphanSet.has(oid) && !takenByKey.has(`${cid}|${oid}`));
+          const branchRowPath = !hasSousFor(brancheId, cid) && !blockedForClass(brancheId, cid);
+          const batches: { branche_id: string | null; sous_branche_ids: string[] }[] = [
+            ...(sousForClass.length ? [{ branche_id: brancheId, sous_branche_ids: sousForClass }] : []),
+            ...(branchRowPath ? [{ branche_id: brancheId, sous_branche_ids: [] as string[] }] : []),
+            ...(orphansForClass.length ? [{ branche_id: null, sous_branche_ids: orphansForClass }] : []),
+          ];
+          for (const b of batches) {
+            const res = await createAttribution({
+              school_year_id: yearId,
+              section: sectionKey,
+              classe_id: cid,
+              branche_id: b.branche_id,
+              sous_branche_ids: b.sous_branche_ids,
+              enseignant_id: enseignantId,
+            });
+            if (res.error) errors.push(`${classNameById.get(cid) ?? "Classe"} : ${res.error}`);
+            else total += res.created ?? 0;
+          }
+        }
+        if (errors.length) {
+          setError(errors.join(" "));
+          setBusy(false);
+          router.refresh();
+          return;
+        }
+        if (total === 0) {
+          setError("Aucune attribution créée (déjà existantes).");
+          setBusy(false);
+          return;
         }
       }
     } catch {
@@ -402,26 +458,59 @@ export function AttributionsManager({
                 onChange={(e) => {
                   const next = e.target.value;
                   setBrancheId(next); setSousIds([]);
-                  // Keep the class only while the new cours offers it.
-                  const choices = classeChoicesFor(next, classeId);
-                  if (!choices.some((c) => c.id === classeId)) setClasseId(choices[0]?.id ?? "");
+                  // Keep the current classes only while the new cours offers them.
+                  const choices = classeChoicesFor(next, edit ? classeId : "");
+                  setClasseIds((prev) => {
+                    const kept = prev.filter((cid) => choices.some((c) => c.id === cid));
+                    if (kept.length) return kept;
+                    const first = choices.find((c) => !blockedForClass(next, c.id)) ?? choices[0];
+                    return first ? [first.id] : [];
+                  });
                 }}
               >
                 {branchOptions.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
             </div>
-            <div>
-              <Label>Classe</Label>
-              <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={classeId} onChange={(e) => setClasseId(e.target.value)}>
-                {classeChoices.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
+            {edit ? (
+              <div>
+                <Label>Classe</Label>
+                <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={classeId} onChange={(e) => setClasseIds([e.target.value])}>
+                  {classeChoices.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <Label>Classes</Label>
+                <div className="mt-1 max-h-32 space-y-1 overflow-y-auto rounded-md border border-slate-200 px-3 py-2">
+                  {classeChoices.map((c) => {
+                    const blocked = blockedForClass(brancheId, c.id);
+                    return (
+                      <label
+                        key={c.id}
+                        className={`flex items-center gap-2 text-sm ${blocked ? "text-slate-400" : ""}`}
+                        title={blocked ? `Déjà attribuée à ${blocked}` : undefined}
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-3.5 w-3.5 rounded border-slate-300"
+                          checked={classeIds.includes(c.id)}
+                          disabled={!!blocked}
+                          onChange={(e) => setClasseIds((prev) => (e.target.checked ? [...prev, c.id] : prev.filter((x) => x !== c.id)))}
+                        />
+                        <span>{c.name}{blocked ? ` (déjà : ${blocked})` : ""}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="mt-1 text-[11px] text-slate-500">Cochez une ou plusieurs classes — une attribution et sa fiche seront créées pour chacune.</p>
+              </div>
+            )}
             {!edit && filteredSous.length > 0 && (
               <div>
                 <Label>Sous-branches</Label>
                 <div className="mt-1 max-h-32 space-y-1 overflow-y-auto rounded-md border border-slate-200 px-3 py-2">
                   {filteredSous.map((s) => {
-                    const takenBy = takenSous.get(s.id);
+                    const { disabled: taken, takenBy } = takenStateFor(s.id, s.classe_id);
                     // A class-bound sous-branche always matches the selected class
                     // here, so the suffix is only informative for shared ones.
                     const scope = s.classe_id
@@ -430,14 +519,14 @@ export function AttributionsManager({
                     return (
                       <label
                         key={s.id}
-                        className={`flex items-center gap-2 text-sm ${takenBy ? "text-slate-400" : ""}`}
+                        className={`flex items-center gap-2 text-sm ${taken ? "text-slate-400" : ""}`}
                         title={takenBy ? `Déjà attribuée à ${takenBy}` : undefined}
                       >
                         <input
                           type="checkbox"
                           className="h-3.5 w-3.5 rounded border-slate-300"
                           checked={sousIds.includes(s.id)}
-                          disabled={!!takenBy}
+                          disabled={taken}
                           onChange={(e) => toggleSous(s.id, e.target.checked)}
                         />
                         <span>
@@ -465,7 +554,7 @@ export function AttributionsManager({
                 <Label>Matières sans branche</Label>
                 <div className="mt-1 max-h-32 space-y-1 overflow-y-auto rounded-md border border-slate-200 px-3 py-2">
                   {orphanForClass.map((o) => {
-                    const takenBy = takenSous.get(o.id);
+                    const { disabled: taken, takenBy } = takenStateFor(o.id, o.classe_id);
                     return (
                       <label
                         key={o.id}
