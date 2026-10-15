@@ -136,6 +136,10 @@ class Supabase:
             "annee": (meta_raw.get("school_year") or {}).get("label", ""),
         }
 
+        # Events are attached to the weeks they cover (official layout) BEFORE
+        # the renderer sees them: no band rows, the week keeps its number+dates.
+        rows = [dict(r, _range=parse_range(r.get("date_label"))) for r in rows]
+
         fic_rows = []
         for r in rows:
             fid = str(r["id"])
@@ -147,8 +151,14 @@ class Supabase:
                 "date_label": r.get("date_label"),
                 "periode_label": r.get("periode_label"),
                 "evenement_label": r.get("evenement_label"),
+                "event_label": r.get("event_label"),
+                "_range": parse_range(r.get("date_label")),
                 "cells": cells.get(fid, {}),
             })
+        # Official layout: the event belongs to its first covered week.
+        fic_rows = attach_events(fic_rows)
+        for r in fic_rows:   # drop the helper key before rendering
+            r.pop("_range", None)
         return {"fiche": fiche, "meta": meta, "rows": fic_rows}
 
 
@@ -225,6 +235,67 @@ cell_style_small = st(fontSize=7.5, leading=9)
 
 # ---------------------------------------------------------------------------
 # Découpage des pages (reprend la logique actuelle splitPrintPages)
+def parse_range(label):
+    """'01/09/2026 → 04/09/2026' -> (date, date), ou None."""
+    if not label:
+        return None
+    m = re.search(
+        r"(\d{2})/(\d{2})/(\d{4})\s*→\s*(\d{2})/(\d{2})/(\d{4})", label
+    )
+    if not m:
+        return None
+    sd, sm, sy, ed, em, ey = (int(x) for x in m.groups())
+    return date(sy, sm, sd), date(ey, em, ed)
+
+
+def fmt_day(d):
+    return f"{d.day:02d}/{d.month:02d}/{d.year}"
+
+
+def attach_events(rows):
+    """Disposition officielle : l'événement est porté par la PREMIÈRE semaine
+    qu'il couvre, les semaines suivantes de la même période sont marquées
+    « (suite) », et la date de fin n'est affichée que si l'événement s'arrête
+    avant le dernier jour de cette semaine.
+
+    Les lignes teaching gardent leur semaine (numéro + dates) ; les lignes
+    evenement sont consommées ici et ne deviennent PAS des bandes.
+    """
+    teaching = [r for r in rows if r.get("row_type") == "enseignement"]
+    events = [r for r in rows if r.get("row_type") == "evenement" and parse_range(r.get("date_label"))]
+
+    out = []
+    for idx, row in enumerate(teaching):
+        week = parse_range(row.get("date_label"))
+        new = dict(row)
+        if week is None or row.get("semaine_num") is None:
+            out.append(new)
+            continue
+        covering = [e for e in events
+                    if e["_range"][0] <= week[1] and e["_range"][1] >= week[0]]
+        if not covering:
+            out.append(new)
+            continue
+        ev = covering[0]
+        earlier = any(
+            (wr := parse_range(w.get("date_label"))) is not None
+            and w.get("semaine_num") is not None
+            and ev["_range"][0] <= wr[1] and ev["_range"][1] >= wr[0]
+            for w in teaching[:idx]
+        )
+        label = (ev.get("periode_label") or ev.get("evenement_label") or "").upper()
+        if earlier:
+            label = f"{label} (SUITE)"
+        # date de fin quand l'événement s'arrête avant le dernier jour
+        if ev["_range"][1] < week[1]:
+            label = f"{label} ({fmt_day(ev['_range'][1])})"
+        new["row_type"] = "evenement"   # ligne d'événement : 3 cellules, SPAN matière
+        new["event_label"] = label
+        new["cells"] = {}               # pas de contenu à saisir sur une période
+        out.append(new)
+    return out
+
+
 def split_pages(rows: list[dict], section: str) -> list[list[dict]]:
     if section == "primaire":
         idx = next((i for i, r in enumerate(rows)
@@ -360,14 +431,15 @@ def make_table(page_rows, section: str, col_widths_mm, header_names, cell_render
     spans = []
     if section == "primaire":
         # indices (dans data, après header) des débuts de mois et longueur
-        teach_rows = [i for i, r in enumerate(page_rows) if r["row_type"] == "enseignement"]
+        # Une ligne d'événement est une ligne de semaine : elle porte le mois et
+        # ne doit pas casser le bloc (sinon le Mois de la semaine suivante est
+        # dupliqué et les colonnes se décalent).
         i = 0
         while i < len(page_rows):
-            r = page_rows[i]
-            if r["row_type"] == "enseignement":
-                m = r.get("mois")
+            m = page_rows[i].get("mois")
+            if m:
                 j = i
-                while j < len(page_rows) and page_rows[j]["row_type"] == "enseignement" and page_rows[j].get("mois") == m:
+                while j < len(page_rows) and page_rows[j].get("mois") == m:
                     j += 1
                 if j - i > 1:
                     # data row offset: header=0, page row i -> data row i+1
@@ -406,11 +478,14 @@ def make_table(page_rows, section: str, col_widths_mm, header_names, cell_render
         ("TOPPADDING", (0, 0), (-1, -1), 2.5),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
     ]
-    # bandes événements : fond clair
+    # Semaine d'événement : fond gris CLAIR sur les colonnes matière UNIQUEMENT ;
+    # « Mois » et « Semaine — Date » restent en blanc.
+    EVENT_BG = colors.HexColor("#ededed")
     for i, r in enumerate(page_rows, start=1):
-        if r["row_type"] == "evenement":
-            style.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor("#fbfbf7")))
-            style.append(("SPAN", (0, i), (-1, i)))
+        if r.get("row_type") != "evenement":
+            continue
+        style.append(("BACKGROUND", (2, i), (2, i), EVENT_BG))
+        style.append(("SPAN", (2, i), (5, i)))
 
     # fusion mois primaire
     for start_data, n in spans:
@@ -427,11 +502,21 @@ def p(text, style=cell_style):
 
 
 def render_primary_row(r: dict):
-    if r["row_type"] == "evenement":
-        label = (r.get("periode_label") or r.get("evenement_label") or "").upper()
-        return [Paragraph(f"<b>{label}</b>", cell_style_bc)]
+    """Une ligne primaire.
+
+    Semaine d'événement : la ligne reste une ligne de semaine (mois + semaine) et
+    le nom de l'événement occupe les colonnes matière, fusionnées — disposition du
+    document officiel, pas une bande pleine largeur.
+    """
     mois = r.get("mois") or ""
     week = f"{r.get('semaine_num') or ''} · {compact_week(r.get('date_label') or '')}" if (r.get('semaine_num') is not None or r.get('date_label')) else ""
+    if r.get("row_type") == "evenement":
+        label = (r.get("event_label") or r.get("periode_label") or r.get("evenement_label") or "").upper()
+        return [
+            p(mois, cell_style_bc),                    # mois (fusionné)
+            p(week, cell_style_bc),
+            Paragraph(f"<b>{label}</b>", cell_style_bc),  # SPAN sur les colonnes matière
+        ]
     return [
         p(mois, cell_style_bc),                    # mois (sera fusionné)
         p(week, cell_style_bc),
@@ -443,9 +528,19 @@ def render_primary_row(r: dict):
 
 
 def render_secondary_row(r: dict):
+    """Une ligne secondaire.
+
+    Semaine d'événement : la ligne reste une ligne de semaine (N° + dates) et le
+    nom de l'événement occupe les colonnes matière, fusionnées (Heure → Obs.) —
+    même disposition que le primaire et le document officiel.
+    """
     if r["row_type"] == "evenement":
-        label = (r.get("periode_label") or "").upper()
-        return [Paragraph(f"<b>{label}</b>", cell_style_bc)]
+        label = (r.get("event_label") or r.get("periode_label") or r.get("evenement_label") or "").upper()
+        return [
+            p(str(r.get("semaine_num") or ""), cell_style_c),
+            p(compact_week(r.get("date_label") or ""), cell_style_bc),
+            Paragraph(f"<b>{label}</b>", cell_style_bc),  # SPAN sur les colonnes matière
+        ]
     return [
         p(str(r.get("semaine_num") or ""), cell_style_c),
         p(compact_week(r.get("date_label") or ""), cell_style_bc),
