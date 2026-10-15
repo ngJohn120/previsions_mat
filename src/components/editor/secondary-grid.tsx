@@ -4,6 +4,9 @@ import { useMemo, useRef, useState } from "react";
 import { Cell } from "@/components/editor/cell";
 import { cn } from "@/lib/utils";
 import type { FicheRow } from "@/lib/fiche-types";
+import {
+  eventLabelInWeek, eventRowClass, eventTextClass, weeksWithEvents,
+} from "@/lib/fiche-events";
 
 const SEC_COL_META: { key: string; label: string; required: boolean; className?: string; narrow?: boolean }[] = [
   { key: "matieres", label: "Matières prévues", required: true, className: "min-w-[300px]" },
@@ -18,7 +21,10 @@ const COL_SPAN = DISPLAY_ORDER.length + 2; // + num + week
 
 /**
  * Secondary grid: week rows with N + date range, Heure/Matières prévues/
- * M.V./Obs. cells, gray period separator bands and golden event bands.
+ * M.V./Obs. cells, gray period separator bands. Multi-week events follow the
+ * paper — shared with the primary grid and the PDF: an event is printed in
+ * full on the FIRST week it covers and the following weeks of its span are
+ * marked « (suite) » (nothing editable there), never an ordinary week.
  */
 export function SecondaryGrid({
   rows,
@@ -52,29 +58,23 @@ export function SecondaryGrid({
     onCellsChange?.(next);
   }
 
-  // Insert period-separator pseudo-rows whenever the period label changes
-  // between consecutive teaching rows, and render events as bands.
+  // Teaching weeks, each with the event printed on it (shared with the primary
+  // grid + PDF), with period separators where the period label changes.
+  const weeks = useMemo(() => weeksWithEvents(rows), [rows]);
   const display = useMemo(() => {
-    type Disp =
-      | { kind: "teaching"; row: FicheRow }
-      | { kind: "period"; label: string }
-      | { kind: "event"; row: FicheRow };
+    type Disp = { kind: "teaching"; w: (typeof weeks)[number] } | { kind: "period"; label: string };
     const out: Disp[] = [];
     let lastPeriod: string | null = null;
-    for (const r of rows) {
-      if (r.row_type === "evenement") {
-        out.push({ kind: "event", row: r });
-        continue;
-      }
-      const period = r.periode_label;
+    for (const w of weeks) {
+      const period = w.row.periode_label;
       if (period && period !== lastPeriod) {
         out.push({ kind: "period", label: period.toUpperCase() });
         lastPeriod = period;
       }
-      out.push({ kind: "teaching", row: r });
+      out.push({ kind: "teaching", w });
     }
     return out;
-  }, [rows]);
+  }, [weeks]);
 
   return (
     <div className="overflow-x-auto">
@@ -110,25 +110,46 @@ export function SecondaryGrid({
                 </tr>
               );
             }
-            if (d.kind === "event") {
-              return (
-                <tr key={d.row.id} className={bandClass(d.row.evenement_label)}>
-                  <td colSpan={COL_SPAN} className="border border-amber-200/70 px-3 py-2 text-center text-[11.5px] font-bold tracking-wide text-amber-800 uppercase">
-                    {d.row.periode_label ?? d.row.date_label ?? "Événement"}
-                  </td>
-                </tr>
-              );
-            }
-            const row = d.row;
+            const w = d.w;
+            const row = w.row;
+            const ev = w.event;
             return (
-              <tr key={row.id}>
+              <tr key={row.id} className={ev ? eventRowClass(ev.evenement_label) : undefined}>
                 <td className="border border-slate-200 bg-slate-50/60 px-2 py-1.5 text-center align-middle font-semibold text-slate-700">
                   {row.semaine_num ?? ""}
                 </td>
                 <td className="whitespace-nowrap border border-slate-200 bg-slate-50/60 px-2 py-1.5 text-center align-middle text-[11px] text-slate-500">
                   {row.date_label ?? ""}
                 </td>
-                {DISPLAY_ORDER.map((key) => {
+                {DISPLAY_ORDER.map((key, ci) => {
+                  // An event week carries no teaching: the event name spans the
+                  // teaching area, centered, and nothing is editable there —
+                  // the paper's layout, same as the primary grid.
+                  if (ev && ci === 0) {
+                    return (
+                      <td
+                        key={key}
+                        colSpan={DISPLAY_ORDER.length}
+                        className="h-[46px] border border-slate-200 px-2 py-1.5 align-middle"
+                      >
+                        <span
+                          className={cn(
+                            "block text-center text-[12.5px] leading-snug font-bold tracking-wide uppercase",
+                            eventTextClass(ev.evenement_label),
+                            w.continues && "opacity-80"
+                          )}
+                          title={ev.date_label ?? undefined}
+                        >
+                          {eventLabelInWeek(ev, row, w.continues)}
+                        </span>
+                      </td>
+                    );
+                  }
+                  if (ev) {
+                    // remaining teaching columns of the event row are covered by
+                    // the colspan above
+                    return null;
+                  }
                   const meta = SEC_COL_META.find((c) => c.key === key)!;
                   const cell = row.cells[key];
                   const value = cell ? values[cell.id] ?? cell.value : "";
@@ -165,11 +186,4 @@ export function SecondaryGrid({
       </table>
     </div>
   );
-}
-
-function bandClass(type: string | null): string {
-  if (type === "evaluation" || type === "examen") {
-    return "bg-purple-50 text-purple-700 [&>td]:!border-purple-200";
-  }
-  return "bg-amber-50 text-amber-800 [&>td]:!border-amber-200/70";
 }
