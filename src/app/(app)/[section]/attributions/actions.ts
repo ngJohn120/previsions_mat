@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser, isSuperAdmin, isSectionAdmin } from "@/lib/auth";
-import { templateVersionFor, type TemplateRow } from "@/lib/templates";
+import { templateVersionFor, seedFicheForAttribution } from "@/lib/templates";
 import { validateAttributionsCsv, type CsvRow } from "@/lib/csv";
 import { isRosterMember } from "@/lib/roster";
 
@@ -117,7 +117,7 @@ export async function createAttribution(input: {
       return { error: error.message };
     }
     created++;
-    if (tpl) await seedFiche(supabase, attr.id, input.school_year_id, tpl.rows);
+    if (tpl) await seedFicheForAttribution(supabase, attr.id, input.school_year_id, tpl.rows);
   }
 
   if (created === 0) {
@@ -126,48 +126,6 @@ export async function createAttribution(input: {
 
   revalidatePath(`/${input.section}/attributions`);
   return { created };
-}
-
-/** Draft fiche + template rows + empty cells for a new attribution (best effort). */
-async function seedFiche(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  attributionId: string,
-  schoolYearId: string,
-  templateRows: TemplateRow[]
-): Promise<void> {
-  const { data: fiche } = await supabase
-    .from("fiches")
-    .insert({
-      attribution_id: attributionId,
-      school_year_id: schoolYearId,
-      statut: "brouillon",
-    })
-    .select("id")
-    .single();
-  if (!fiche) return;
-  for (const tr of templateRows) {
-    const { data: row } = await supabase
-      .from("fiche_rows")
-      .insert({
-        fiche_id: fiche.id,
-        row_uuid: tr.row_uuid,
-        ordre: tr.ordre,
-        row_type: tr.row_type,
-        mois: tr.mois,
-        semaine_num: tr.semaine_num,
-        date_label: tr.date_label,
-        periode_label: tr.periode_label,
-        evenement_label: tr.evenement_label,
-      })
-      .select("id")
-      .single();
-    if (row) {
-      const cols = ["matieres", "ref", "intention", "obs", "heure", "mv"];
-      await supabase.from("fiche_cells").insert(
-        cols.map((c) => ({ fiche_row_id: row.id, col_key: c, value: "" }))
-      );
-    }
-  }
 }
 
 export async function updateAttribution(input: {

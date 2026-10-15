@@ -11,7 +11,7 @@ import {
   fmt, monthLabel, parseLabelBounds, recomputeMois,
   renumberRows, resequenceWeeks, type EditRow,
 } from "@/lib/calendar";
-import { createNewTemplateVersion } from "@/lib/templates";
+import { createNewTemplateVersion, ensureFichesForSection } from "@/lib/templates";
 
 type Result = { error?: string };
 
@@ -93,6 +93,9 @@ export async function generateCalendar(input: {
         .eq("school_year_id", input.yearId)
         .eq("section", input.section)
         .neq("id", tv.id);
+      // Attributions created before this version existed have no fiche yet —
+      // activating the calendar is their one chance to get one.
+      await ensureFichesForSection(input.yearId, input.section);
     }
     revalidatePath("/admin/calendrier");
     return {};
@@ -100,6 +103,10 @@ export async function generateCalendar(input: {
 
   const res = await createNewTemplateVersion(input.yearId, input.section, rows, input.active ?? true);
   if ("error" in res) return { error: res.error };
+
+  // A newly active version decks out every attribution of the section that
+  // still has no fiche (created before any calendar existed).
+  if (input.active ?? true) await ensureFichesForSection(input.yearId, input.section);
 
   revalidatePath("/admin/calendrier");
   return {};
