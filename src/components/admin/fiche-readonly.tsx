@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { EditorDocHeader } from "@/components/editor/doc-header";
 import { PrimaryGrid } from "@/components/editor/primary-grid";
 import { SecondaryGrid } from "@/components/editor/secondary-grid";
+import { PdfDownloadButton } from "@/components/print/pdf-download-button";
 import { Button } from "@/components/ui/button";
 import { approveUnlockRequest, refuseUnlockRequest, type PendingUnlock } from "@/app/(app)/admin/unlock-actions";
 import type { FicheWithRows } from "@/lib/fiche-types";
@@ -58,7 +60,7 @@ export function FicheReadOnly({
 
   return (
     <div>
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <button
           type="button"
           onClick={goBack}
@@ -70,6 +72,14 @@ export function FicheReadOnly({
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
           Consultation · lecture seule
         </span>
+        <Link
+          href={`/impression/${fiche.id}`}
+          target="_blank"
+          className="inline-flex h-7 items-center rounded-lg border border-slate-300 bg-white px-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Aperçu impression
+        </Link>
+        <PdfDownloadButton ficheId={fiche.id} />
       </div>
 
       {pendingRequests.length > 0 && viewerIsAdmin && (
