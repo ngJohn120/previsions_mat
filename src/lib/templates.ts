@@ -173,3 +173,79 @@ export async function applyTemplateVersionToFiches(
 
   return { updated };
 }
+
+/**
+ * Insert a draft fiche + its rows and empty cells for one attribution.
+ * Used at attribution creation AND by ensureFichesForSection — attributions
+ * created before the section's calendar existed have no other path to a fiche.
+ */
+export async function seedFicheForAttribution(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  attributionId: string,
+  schoolYearId: string,
+  templateRows: TemplateRow[]
+): Promise<void> {
+  const { data: fiche } = await supabase
+    .from("fiches")
+    .insert({
+      attribution_id: attributionId,
+      school_year_id: schoolYearId,
+      statut: "brouillon",
+    })
+    .select("id")
+    .single();
+  if (!fiche) return;
+  for (const tr of templateRows) {
+    const { data: row } = await supabase
+      .from("fiche_rows")
+      .insert({
+        fiche_id: fiche.id,
+        row_uuid: tr.row_uuid,
+        ordre: tr.ordre,
+        row_type: tr.row_type,
+        mois: tr.mois,
+        semaine_num: tr.semaine_num,
+        date_label: tr.date_label,
+        periode_label: tr.periode_label,
+        evenement_label: tr.evenement_label,
+      })
+      .select("id")
+      .single();
+    if (row) {
+      const cols = ["matieres", "ref", "intention", "obs", "heure", "mv"];
+      await supabase.from("fiche_cells").insert(
+        cols.map((c) => ({ fiche_row_id: row.id, col_key: c, value: "" }))
+      );
+    }
+  }
+}
+
+/**
+ * Create the fiches missing for a year+section, from the ACTIVE template
+ * version. Fiches are seeded per attribution at creation time, so anything
+ * created BEFORE the section's calendar existed would stay form-less forever —
+ * activating a version runs this so every attribution ends up with its fiche.
+ */
+export async function ensureFichesForSection(
+  yearId: string,
+  section: "primaire" | "secondaire"
+): Promise<number> {
+  const tpl = await templateVersionFor(yearId, section);
+  if (!tpl) return 0;
+
+  const supabase = await createClient();
+  const { data: attribs } = await supabase
+    .from("attributions")
+    .select("id, fiche:fiches(id), classe:classes!inner(section)")
+    .eq("school_year_id", yearId)
+    .eq("classe.section", section)
+    .returns<{ id: string; fiche: { id: string } | null }[]>();
+
+  let created = 0;
+  for (const a of attribs ?? []) {
+    if (a.fiche) continue;
+    await seedFicheForAttribution(supabase, a.id, yearId, tpl.rows);
+    created++;
+  }
+  return created;
+}
