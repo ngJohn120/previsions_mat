@@ -60,7 +60,7 @@ export function toPdfPayload(fiche: FicheWithRows): PdfPayload {
       enseignant: fiche.meta.enseignant,
       annee: fiche.meta.school_year_label,
     },
-    rows: buildPdfRows(fiche.rows, fiche.meta.section),
+    rows: buildPdfRows(fiche.rows),
   };
 }
 

@@ -64,33 +64,11 @@ function printableCells(row: FicheRow): Record<string, string> {
 
 /**
  * Map a fiche to the rows the PDF must draw, using the SAME event placement as
- * the on-screen grid. Secondary keeps its own band layout (approved design), so
- * its event rows pass through unchanged.
+ * the on-screen grid (both sections): an event is printed in full on the first
+ * week it covers and the weeks it continues are marked « (suite) » with the end
+ * date when it stops before that week's last day.
  */
-export function buildPdfRows(
-  rows: FicheRow[],
-  section: "primaire" | "secondaire"
-): PdfRow[] {
-  const teaching = rows.filter((r) => r.row_type === "enseignement");
-
-  if (section === "secondaire") {
-    // The secondary grid is built around period/golden bands: keep its rows.
-    return rows.map((row) => ({
-      ordre: row.ordre,
-      rowType: row.row_type,
-      mois: null,
-      moisRowspan: 1,
-      semaineNum: row.semaine_num,
-      dateLabel: row.date_label,
-      eventLabel:
-        row.row_type === "evenement"
-          ? (row.periode_label ?? row.date_label ?? "Événement").toUpperCase()
-          : null,
-      eventKind: row.evenement_label,
-      cells: printableCells(row),
-    }));
-  }
-
+export function buildPdfRows(rows: FicheRow[]): PdfRow[] {
   const weeks = weeksWithEvents(rows);
   // Month blocks are computed over the PRINTED rows (one per week, event weeks
   // included) — computing them over the teaching-only array misaligns the
@@ -117,31 +95,4 @@ export function buildPdfRows(
       cells: ev ? {} : printableCells(w.row),
     };
   });
-}
-
-/** Map an RLS-authorised fiche to printable values only. */
-export function toPdfPayload(fiche: {
-  fiche: { id: string; statut: FicheStatut };
-  meta: {
-    section: "primaire" | "secondaire";
-    classe: string;
-    cours: string;
-    sous_branche: string | null;
-    enseignant: string;
-    school_year_label: string;
-  };
-  rows: FicheRow[];
-}): PdfPayload {
-  return {
-    fiche: { id: fiche.fiche.id, statut: fiche.fiche.statut },
-    meta: {
-      section: fiche.meta.section,
-      classe: fiche.meta.classe,
-      cours: fiche.meta.cours,
-      sousBranche: fiche.meta.sous_branche,
-      enseignant: fiche.meta.enseignant,
-      annee: fiche.meta.school_year_label,
-    },
-    rows: buildPdfRows(fiche.rows, fiche.meta.section),
-  };
 }

@@ -304,20 +304,16 @@ def make_table(page_rows, section: str, col_widths_mm, header_names, cell_render
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
     ]
     # Semaine d'événement : fond gris CLAIR sur les colonnes matière UNIQUEMENT.
-    # « Mois » et « Semaine — Date » restent en blanc : ils identifient la
-    # semaine, pas l'événement. La ligne n'a que 3 cellules (mois, semaine,
-    # événement fusionné) : la zone matière EST la colonne 2.
+    # « Mois » / « N° » et « Semaine — Date » restent en blanc : ils identifient
+    # la semaine, pas l'événement. La ligne n'a que 3 cellules (mois/N°,
+    # semaine, événement fusionné) : la zone matière EST la colonne 2 — pour les
+    # deux sections (aligné 2026-10, auparavant le secondaire gardait une bande).
     EVENT_BG = colors.HexColor("#ededed")
     for i, r in enumerate(page_rows, start=1):
         if r["rowType"] != "evenement":
             continue
-        if section == "primaire":
-            style.append(("BACKGROUND", (2, i), (2, i), EVENT_BG))
-            style.append(("SPAN", (2, i), (5, i)))
-        else:
-            # secondaire : bande pleine largeur (disposition approuvée)
-            style.append(("BACKGROUND", (0, i), (-1, i), EVENT_BG))
-            style.append(("SPAN", (0, i), (-1, i)))
+        style.append(("BACKGROUND", (2, i), (2, i), EVENT_BG))
+        style.append(("SPAN", (2, i), (5, i)))
 
     # fusion mois primaire
     for start_data, n in spans:
@@ -360,10 +356,19 @@ def render_primary_row(r: dict):
 
 
 def render_secondary_row(r: dict):
+    """Une ligne secondaire.
+
+    Semaine d'événement : la ligne reste une ligne de semaine (N° + dates) et le
+    nom de l'événement occupe les colonnes matière, fusionnées (Heure → Obs.) —
+    même disposition que le primaire et le document officiel.
+    """
     if r["rowType"] == "evenement":
-        # Le secondaire garde sa disposition en bandes (design approuvé).
         label = (r.get("eventLabel") or r.get("eventKind") or "").upper()
-        return [Paragraph(f"<b>{label}</b>", cell_style_bc)]
+        return [
+            p(str(r.get("semaineNum") or ""), cell_style_c),
+            p(compact_week(r.get("dateLabel") or ""), cell_style_bc),
+            Paragraph(f"<b>{label}</b>", cell_style_bc),  # SPAN sur les colonnes matière
+        ]
     return [
         p(str(r.get("semaineNum") or ""), cell_style_c),
         p(compact_week(r.get("dateLabel") or ""), cell_style_bc),
