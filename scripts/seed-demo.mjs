@@ -193,14 +193,22 @@ async function main() {
   const { data: tplRowsS } = await c.from("template_rows").select("*").eq("template_version_id", tvS?.[0]?.id).order("ordre");
 
   const createFiche = async ({ classeId, section, brancheId, sousId, enseignantId, tplRows, seed }) => {
-    const { data: attr } = await c.from("attributions").insert({
-      school_year_id: YEAR_ID, classe_id: classeId, branche_id: brancheId, sous_branche_id: sousId ?? null, enseignant_id: enseignantId,
-    }).select("id").maybeSingle();
-    if (!attr) return;
-    const { data: fiche } = await c.from("fiches").insert({
-      attribution_id: attr.id, school_year_id: YEAR_ID, statut: "brouillon",
-    }).select("id").maybeSingle();
-    if (!fiche) return;
+      const attrRes = await c.from("attributions").insert({
+        school_year_id: YEAR_ID, classe_id: classeId, branche_id: brancheId, sous_branche_id: sousId ?? null, enseignant_id: enseignantId,
+      }).select("id").maybeSingle();
+      const attr = attrRes?.data ?? attrRes;
+      if (!attr) {
+        console.log("ATTR-INSERT-FAILED", JSON.stringify(attrRes?.error ?? attrRes ?? {}).slice(0, 400));
+        return;
+      }
+      const ficheRes = await c.from("fiches").insert({
+        attribution_id: attr.id, school_year_id: YEAR_ID, statut: "brouillon",
+      }).select("id").maybeSingle();
+      const fiche = ficheRes?.data ?? ficheRes;
+      if (!fiche) {
+        console.log("FICHE-INSERT-FAILED", JSON.stringify(ficheRes?.error ?? ficheRes ?? {}).slice(0, 400));
+        return;
+      }
     const content = sampleContent(tplRows ?? [], seed);
     for (const tr of content) {
       const { data: row } = await c.from("fiche_rows").insert({

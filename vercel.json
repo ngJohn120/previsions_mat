@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/render_pdf.py": {
+      "excludeFiles": "{.env.local,.env.example,.venv-pdf/**,scripts/**,python/tests/**,node_modules/**,.next/**,.vercel/**,README.md,docs/**,supabase/**,src/lib/supabase/**,*.md,tsconfig.json,tsconfig.tsbuildinfo,vitest.config.ts,package-lock.json,uv.lock,next.config.ts}"
+    }
+  }
+}

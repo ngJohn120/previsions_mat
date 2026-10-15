@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "postinstall": "node scripts/sync-pdfjs-worker.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -20,6 +21,7 @@
     "lucide-react": "^1.40.0",
     "next": "16.3.4",
     "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "5.4.296",
     "puppeteer-core": "^25.10.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -29,7 +31,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "24.10.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

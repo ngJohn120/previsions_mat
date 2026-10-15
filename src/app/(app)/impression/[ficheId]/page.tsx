@@ -3,16 +3,14 @@ import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
 import { getFicheForUser } from "@/lib/fiche";
 import { titleForSection } from "@/lib/school";
-import { generateFichePageImages } from "@/lib/print-pdf";
 import { PdfDownloadButton } from "@/components/print/pdf-download-button";
+import { PdfPreview } from "@/components/print/pdf-preview";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Aperçu impression — affiche le rendu officiel (ReportLab/Python) sous forme
- * d'images par page. Chaque page est un PNG (généré via pypdfium2) : aucune
- * navigation vers un PDF, donc aucun téléchargement intempestif — la page
- * s'affiche dans n'importe quel navigateur / webview.
+ * Aperçu impression — le rendu officiel (ReportLab) est affiché côté client
+ * à partir du PDF protégé /impression/[ficheId]/pdf (composant PdfPreview).
  */
 export default async function ImpressionPage({
   params,
@@ -29,14 +27,6 @@ export default async function ImpressionPage({
   const statut = data.fiche.statut;
   const section = data.meta.section;
   const title = `${titleForSection(section)} — ${section === "primaire" ? "Primaire" : "Secondaire"}`;
-
-  let pageImages: string[] | null = null;
-  let pageError: string | null = null;
-  try {
-    pageImages = await generateFichePageImages(ficheId);
-  } catch (e) {
-    pageError = e instanceof Error ? e.message : "Erreur de rendu";
-  }
 
   return (
     <div className="no-print min-h-screen bg-slate-100">
@@ -64,28 +54,8 @@ export default async function ImpressionPage({
         </div>
       </div>
 
-      {/* Pages du document */}
-      <div className="mx-auto flex max-w-[1100px] flex-col items-center gap-6 px-4 py-6">
-        {pageError && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {pageError}
-          </div>
-        )}
-        {pageImages?.map((src, i) => (
-          <div
-            key={i}
-            className="w-full overflow-hidden rounded-lg border border-slate-300 bg-white shadow-md"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={src} alt={`Page ${i + 1}`} className="block h-auto w-full" />
-          </div>
-        ))}
-        {pageImages && pageImages.length > 0 && (
-          <p className="pb-2 text-xs text-slate-400">
-            — Page 1 / {pageImages.length} —
-          </p>
-        )}
-      </div>
+      {/* Pages du document — rendu client du PDF officiel (PDF.js) */}
+      <PdfPreview ficheId={ficheId} />
     </div>
   );
 }
