@@ -14,7 +14,7 @@
 import type { FicheRow, FicheStatut } from "@/lib/fiche-types";
 import { eventLabelInWeek, weeksWithEvents, monthBlocks } from "@/lib/fiche-events";
 
-export type PdfRowType = FicheRow["row_type"];
+export type PdfRowType = FicheRow["row_type"] | "periode";
 
 /** One printed row: a teaching week, or an event week (no teaching cells). */
 export type PdfRow = {
@@ -80,10 +80,31 @@ export function buildPdfRows(rows: FicheRow[]): PdfRow[] {
   );
   const months = monthBlocks(monthSource);
 
-  return weeks.map((w, i) => {
+  const out: PdfRow[] = [];
+  let ordre = 1;
+  // A full-width « Nᵉ PÉRIODE » separator precedes the first week of each
+  // period (same rule as the on-screen grid): a change of `periode_label`.
+  let lastPeriod: string | null = null;
+  for (let i = 0; i < weeks.length; i++) {
+    const w = weeks[i];
+    const period = w.row.periode_label;
+    if (period && period !== lastPeriod) {
+      lastPeriod = period;
+      out.push({
+        ordre: ordre++,
+        rowType: "periode",
+        mois: null,
+        moisRowspan: 1,
+        semaineNum: null,
+        dateLabel: null,
+        eventLabel: period.toUpperCase(),
+        eventKind: null,
+        cells: {},
+      });
+    }
     const ev = w.event;
-    return {
-      ordre: i + 1,
+    out.push({
+      ordre: ordre++,
       rowType: ev ? "evenement" : "enseignement",
       mois: months[i]?.label ?? null,
       moisRowspan: months[i]?.rowspan ?? 1,
@@ -93,6 +114,7 @@ export function buildPdfRows(rows: FicheRow[]): PdfRow[] {
       eventKind: ev?.evenement_label ?? null,
       // An event week carries no teaching content (the event spans the area).
       cells: ev ? {} : printableCells(w.row),
-    };
-  });
+    });
+  }
+  return out;
 }

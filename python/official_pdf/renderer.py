@@ -176,28 +176,10 @@ def header_flowable(meta: dict, title: str, section_label: str, include_full: bo
         v = (value or "—").upper()
         return Paragraph(f"<b>{label} :</b>&nbsp;&nbsp;{v}", label_st)
 
-    # Trois paires par rangée ; chaque paire = une cellule compacte.
-    r1 = [
-        field_para("SECTION", section_label),
-        field_para("CLASSE", meta["classe"]),
-        field_para("TITULAIRE" if meta["section"] == "primaire" else "PROFESSEUR", meta["enseignant"]),
-    ]
-    r2 = [
-        field_para("BRANCHE", meta["cours"]),
-        # La sous-branche n'existe qu'en primaire (les matières du secondaire
-        # n'en ont pas) — on laisse la cellule vide en secondaire.
-        field_para("SOUS-BRANCHE", meta["sousBranche"] or "—")
-        if meta["section"] == "primaire"
-        else Paragraph("", label_st),
-        Paragraph("", label_st),
-    ]
-
-    # Les paires sont réparties sur toute la largeur, avec un espace régulier
-    # entre elles (la valeur reste collée à son label dans chaque cellule).
+    # Deux dispositions : le secondaire tient les quatre champs sur UNE ligne
+    # (section, classe, branche, professeur) ; le primaire garde ses deux
+    # rangées (section, classe, titulaire / branche, sous-branche).
     usable_w = PAGE_W - 16 * mm
-    pair_w = usable_w / 3.0
-    widths = [pair_w] * 3
-
     style = [
         ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
@@ -206,7 +188,26 @@ def header_flowable(meta: dict, title: str, section_label: str, include_full: bo
         ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
     ]
 
-    t = Table([r1, r2], colWidths=widths)
+    if meta["section"] == "primaire":
+        r1 = [
+            field_para("SECTION", section_label),
+            field_para("CLASSE", meta["classe"]),
+            field_para("TITULAIRE", meta["enseignant"]),
+        ]
+        r2 = [
+            field_para("BRANCHE", meta["cours"]),
+            field_para("SOUS-BRANCHE", meta["sousBranche"] or "—"),
+            Paragraph("", label_st),
+        ]
+        t = Table([r1, r2], colWidths=[usable_w / 3.0] * 3)
+    else:
+        r1 = [
+            field_para("SECTION", section_label),
+            field_para("CLASSE", meta["classe"]),
+            field_para("BRANCHE", meta["cours"]),
+            field_para("PROFESSEUR", meta["enseignant"]),
+        ]
+        t = Table([r1], colWidths=[usable_w / 4.0] * 4)
     t.setStyle(TableStyle(style))
 
     flow = [
@@ -247,11 +248,12 @@ class NumberedCanvas(_canvas_mod.Canvas):
 # ---------------------------------------------------------------------------
 # Rendu d'une grille en Table platypus
 def make_table(page_rows, section: str, col_widths_mm, header_names, cell_render,
-               fill_height: float | None = None, first_page: bool = True):
+               body_min_height: float | None = None):
     """Construit une Table platypus avec fusion de mois (primaire).
 
-    fill_height : si fourni (points), les lignes du corps sont étirées pour
-    que la table remplisse exactement cette hauteur (formulaire papier plein).
+    body_min_height : hauteur MINIMUM (points) de chaque ligne du corps. La même
+    valeur est passée à toutes les pages : les lignes gardent la même hauteur
+    d'une page à l'autre (le contenu plus haut peut seulement l'agrandir).
     """
     # Lignes d'affichage : listes de cellules (Paragraph)
     data = [header_names]
@@ -278,18 +280,16 @@ def make_table(page_rows, section: str, col_widths_mm, header_names, cell_render
     for r in page_rows:
         data.append(cell_render(r))
 
-    # Lignes du corps : hauteurs minimales pour remplir la page si demandé.
+    # Lignes du corps : hauteur MINIMUM identique sur toutes les pages.
     n_body = len(page_rows)
     row_heights = None
-    if fill_height and n_body > 0:
+    if body_min_height and n_body > 0:
         # Estimer la hauteur réelle de la ligne d'en-tête.
         head_only = Table([header_names], colWidths=[w * mm for w in col_widths_mm])
         ww, header_h = head_only.wrap(sum(w * mm for w in col_widths_mm), 10_000)
-        avail_body = max(fill_height - header_h, n_body * 5 * mm)
-        min_body = avail_body / n_body
-        # L'en-tête garde sa hauteur ; chaque ligne du corps >= min_body
-        # (les cellules contenant du texte pourront dépasser).
-        row_heights = [header_h] + [min_body] * n_body
+        # Chaque ligne du corps >= body_min_height (le même partout, pour que
+        # les pages n'aient pas des hauteurs de lignes différentes).
+        row_heights = [header_h] + [max(body_min_height, 5 * mm)] * n_body
 
     t = Table(data, colWidths=[w * mm for w in col_widths_mm],
               rowHeights=row_heights, repeatRows=1)
@@ -310,6 +310,10 @@ def make_table(page_rows, section: str, col_widths_mm, header_names, cell_render
     # deux sections (aligné 2026-10, auparavant le secondaire gardait une bande).
     EVENT_BG = colors.HexColor("#ededed")
     for i, r in enumerate(page_rows, start=1):
+        if r["rowType"] == "periode":
+            # Séparateur « Nᵉ PÉRIODE » : pleine largeur, texte centré.
+            style.append(("SPAN", (0, i), (-1, i)))
+            continue
         if r["rowType"] != "evenement":
             continue
         style.append(("BACKGROUND", (2, i), (2, i), EVENT_BG))
@@ -329,6 +333,13 @@ def p(text, style=cell_style):
     return Paragraph((text or "").replace("&", "&amp;").replace("<", "&lt;"), style)
 
 
+def _period_row(r: dict):
+    """Ligne séparatrice « Nᵉ PÉRIODE » : une seule cellule, centrée gras, que
+    le style de table étend (SPAN) sur toute la largeur."""
+    label = (r.get("eventLabel") or r.get("periodeLabel") or "").upper()
+    return [Paragraph(f"<b>{label}</b>", st(fontName=FONT_B, fontSize=9.5, alignment=TA_CENTER))]
+
+
 def render_primary_row(r: dict):
     """Une ligne primaire.
 
@@ -336,6 +347,8 @@ def render_primary_row(r: dict):
     le nom de l'événement occupe les colonnes matière, fusionnées (SPAN) — c'est
     la disposition du document officiel, pas une bande pleine largeur.
     """
+    if r["rowType"] == "periode":
+        return _period_row(r)
     mois = r.get("mois") or ""
     week = f"{r.get('semaineNum') or ''} · {compact_week(r.get('dateLabel') or '')}" if (r.get('semaineNum') is not None or r.get('dateLabel')) else ""
     if r.get("rowType") == "evenement":
@@ -362,6 +375,8 @@ def render_secondary_row(r: dict):
     nom de l'événement occupe les colonnes matière, fusionnées (Heure → Obs.) —
     même disposition que le primaire et le document officiel.
     """
+    if r["rowType"] == "periode":
+        return _period_row(r)
     if r["rowType"] == "evenement":
         label = (r.get("eventLabel") or r.get("eventKind") or "").upper()
         return [
@@ -474,32 +489,39 @@ def _build_pdf(data: dict, out_stream):
     story = []
     total_pages = len(pages)
 
+    # Passe 1 : bloc pré-table mesuré pour chaque page (en-tête, « SUITE »,
+    # signature) — puis UNE hauteur de ligne commune à toutes les pages : la
+    # page la plus dense fixe le minimum, les autres restent plus courtes au
+    # lieu d'étirer leurs lignes.
+    SAFETY = 5 * mm
+    prepared = []
     for pi, chunk in enumerate(pages):
-        # Bloc placé avant la table selon la page.
         if pi == 0:
             pre = header_flowable(meta, title, section_label, include_full=True)
         else:
             pre = [Paragraph("SUITE", st(fontName=FONT_B, fontSize=9, alignment=2)),
                    Spacer(1, 2)]
-        # Mesure réelle du bloc pré-table (pour dimensionner la table).
         pre_h = measure_flowable_height(pre, PAGE_W - 16 * mm)
-        # Signature éventuelle sur la dernière page (mesurée, pas devinée).
         sig_h = 0
         if pi == total_pages - 1:
             sig = signature_flow(meta)
             sig_h = measure_flowable_height(sig, PAGE_W - 16 * mm)
-
-        # Hauteur exacte restante pour la table, moins une marge de sécurité
-        # pour éviter que ReportLab scinde la dernière ligne sur une page suiv.
-        SAFETY = 5 * mm
         avail_table = (PAGE_H - 14 * mm) - pre_h - sig_h - SAFETY
+        prepared.append((chunk, pre, avail_table))
 
+    # La ligne d'en-tête de la table compte aussi dans sa hauteur : on
+    # l'estime pour que chaque table tienne exactement dans sa page.
+    head_probe = Table([headers], colWidths=[w * mm for w in widths])
+    _, header_h_est = head_probe.wrap(sum(w * mm for w in widths), 10_000)
+    ratios = [(avail - header_h_est) / len(chunk) for chunk, _, avail in prepared if chunk]
+    body_min = min(ratios) if ratios else None
+
+    for pi, (chunk, pre, avail_table) in enumerate(prepared):
         story += pre
-
         # Table
         t = make_table(chunk, section, widths, headers,
                        render_primary_row if section == "primaire" else render_secondary_row,
-                       fill_height=avail_table, first_page=(pi == 0))
+                       body_min_height=body_min)
         story.append(t)
         if pi == total_pages - 1:
             story += signature_flow(meta)
