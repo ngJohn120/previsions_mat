@@ -22,7 +22,7 @@ MAX_CELL_CHARS = 20_000
 
 VALID_SECTIONS = ("primaire", "secondaire")
 VALID_STATUTS = ("brouillon", "soumise")
-VALID_ROW_TYPES = ("enseignement", "evenement")
+VALID_ROW_TYPES = ("enseignement", "evenement", "periode")
 
 
 class InvalidRendererSignature(Exception):

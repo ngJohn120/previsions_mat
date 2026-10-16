@@ -68,6 +68,28 @@ class ParseSignedEnvelopeTests(unittest.TestCase):
         parsed = self._parse(body)
         self.assertEqual(parsed["fiche"]["id"], "f1")
 
+    def _row_payload(self, row_type: str):
+        return {
+            "fiche": {"id": "f1", "statut": "soumise"},
+            "meta": {
+                "section": "secondaire", "classe": "7e", "cours": "SPC & Techno",
+                "sousBranche": None, "enseignant": "Josué Cimanga", "annee": "2026 - 2027",
+            },
+            "rows": [{
+                "ordre": 1, "rowType": row_type, "mois": None, "semaineNum": None,
+                "dateLabel": None, "eventLabel": "1ÈRE PÉRIODE", "eventKind": None,
+                "moisRowspan": 1, "cells": {},
+            }],
+        }
+
+    def test_period_row_accepted(self):
+        parsed = self._parse(make_body(payload=self._row_payload("periode")))
+        self.assertEqual(parsed["rows"][0]["rowType"], "periode")
+
+    def test_invalid_row_type_rejected(self):
+        with self.assertRaises(InvalidRendererPayload):
+            self._parse(make_body(payload=self._row_payload("separateur")))
+
     def test_wrong_signature_rejected(self):
         body = make_body()
         with self.assertRaises(InvalidRendererSignature):
